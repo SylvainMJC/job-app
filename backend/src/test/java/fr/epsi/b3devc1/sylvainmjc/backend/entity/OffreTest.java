@@ -39,15 +39,21 @@ class OffreTest {
         assertEquals(offre, offre);
         assertEquals(offre.hashCode(), offre.hashCode());
 
-        // Different object with same ID
+        // Different object with same ID but different fields
+        // With @Data, equals compares all fields, not just ID
         Offre offre2 = new Offre();
         offre2.setId(1L);
-        assertEquals(offre, offre2); // Lombok's @Data generates equals based on all fields
+        assertNotEquals(offre, offre2);
         
-        // Different object with different ID
+        // Copy of the first object with all fields the same
         Offre offre3 = new Offre();
-        offre3.setId(2L);
-        assertNotEquals(offre, offre3);
+        offre3.setId(1L);
+        offre3.setTitre("Développeur Java");
+        offre3.setEntreprise("EPSI");
+        offre3.setLocalisation("Lyon");
+        offre3.setDescription("Description du poste");
+        offre3.setDateCreation(now);
+        assertEquals(offre, offre3);
     }
 
     @Test

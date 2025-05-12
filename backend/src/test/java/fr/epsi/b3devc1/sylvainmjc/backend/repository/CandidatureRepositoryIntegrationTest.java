@@ -22,6 +22,9 @@ class CandidatureRepositoryIntegrationTest {
 
     @Autowired
     private CandidatureRepository candidatureRepository;
+    
+    @Autowired
+    private OffreRepository offreRepository;
 
     @Test
     void testFindByOffre() {
@@ -136,9 +139,8 @@ class CandidatureRepositoryIntegrationTest {
         offre.setLocalisation("Lyon");
         offre.setDescription("Description du poste");
         offre.setDateCreation(LocalDateTime.now());
-        offre = entityManager.persist(offre);
-
-        // Créer et sauvegarder des candidatures
+        
+        // Créer et lier des candidatures
         Candidature candidature1 = new Candidature();
         candidature1.setNom("Dupont");
         candidature1.setPrenom("Jean");
@@ -146,8 +148,7 @@ class CandidatureRepositoryIntegrationTest {
         candidature1.setTelephone("0123456789");
         candidature1.setMessage("Je suis intéressé par ce poste");
         candidature1.setDateCandidat(LocalDateTime.now());
-        candidature1.setOffre(offre);
-
+        
         Candidature candidature2 = new Candidature();
         candidature2.setNom("Martin");
         candidature2.setPrenom("Sophie");
@@ -155,25 +156,35 @@ class CandidatureRepositoryIntegrationTest {
         candidature2.setTelephone("9876543210");
         candidature2.setMessage("Je suis intéressée par ce poste");
         candidature2.setDateCandidat(LocalDateTime.now());
+        
+        // Maintenant établir la relation bidirectionnelle
+        candidature1.setOffre(offre);
         candidature2.setOffre(offre);
-
-        entityManager.persist(candidature1);
-        entityManager.persist(candidature2);
+        offre.getCandidatures().add(candidature1);
+        offre.getCandidatures().add(candidature2);
+        
+        // Sauvegarder l'offre avec les candidatures
+        offre = offreRepository.save(offre);
         entityManager.flush();
-
+        entityManager.clear();
+        
         // Vérifier qu'il y a bien 2 candidatures
         List<Candidature> candidatures = candidatureRepository.findByOffre(offre);
         assertEquals(2, candidatures.size());
-
-        // Supprimer l'offre (ne va pas supprimer les candidatures car pas de cascade)
-        entityManager.remove(offre);
+        
+        // Récupérer l'ID de l'offre avant de la supprimer
+        Long offreId = offre.getId();
+        
+        // Supprimer l'offre (devrait supprimer les candidatures grâce à cascade=ALL)
+        offreRepository.deleteById(offreId);
         entityManager.flush();
         entityManager.clear();
-
-        // Vérifier que toutes les candidatures existent toujours
-        // Note: Dans une vraie application avec cascade, les candidatures seraient supprimées.
-        // Ici, on peut juste vérifier qu'elles existent toujours pour montrer l'importance de configurer les cascades.
+        
+        // Vérifier que l'offre n'existe plus
+        assertFalse(offreRepository.existsById(offreId));
+        
+        // Vérifier que les candidatures ont été supprimées (grâce à la cascade)
         List<Candidature> allCandidatures = candidatureRepository.findAll();
-        assertEquals(2, allCandidatures.size());
+        assertEquals(0, allCandidatures.size());
     }
 } 

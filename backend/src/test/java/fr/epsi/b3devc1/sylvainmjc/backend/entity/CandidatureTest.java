@@ -52,15 +52,23 @@ class CandidatureTest {
         assertEquals(candidature, candidature);
         assertEquals(candidature.hashCode(), candidature.hashCode());
 
-        // Different object with same ID
+        // Different object with same ID but different fields
+        // With @Data, equals compares all fields, not just ID
         Candidature candidature2 = new Candidature();
         candidature2.setId(1L);
-        assertEquals(candidature, candidature2); // Lombok's @Data generates equals based on all fields
+        assertNotEquals(candidature, candidature2);
         
-        // Different object with different ID
+        // Copy of the first object with all fields the same
         Candidature candidature3 = new Candidature();
-        candidature3.setId(2L);
-        assertNotEquals(candidature, candidature3);
+        candidature3.setId(1L);
+        candidature3.setNom("Dupont");
+        candidature3.setPrenom("Jean");
+        candidature3.setEmail("jean.dupont@example.com");
+        candidature3.setTelephone("0123456789");
+        candidature3.setMessage("Je suis intéressé par ce poste");
+        candidature3.setDateCandidat(now);
+        candidature3.setOffre(offre);
+        assertEquals(candidature, candidature3);
     }
 
     @Test
