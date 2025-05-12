@@ -58,6 +58,7 @@ onMounted(loadCandidatures)
 <style scoped>
 .candidatures-list {
   padding: 1rem 0;
+  width: 100%;
 }
 
 .header {
@@ -71,6 +72,19 @@ onMounted(loadCandidatures)
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 1.5rem;
+  width: 100%;
+}
+
+@media (min-width: 768px) {
+  .candidatures-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1200px) {
+  .candidatures-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
 }
 
 .candidature-card {
@@ -78,6 +92,9 @@ onMounted(loadCandidatures)
   border-radius: 8px;
   padding: 1.5rem;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .candidature-card h2 {
@@ -99,11 +116,13 @@ onMounted(loadCandidatures)
 .date {
   color: #666;
   margin-bottom: 1rem;
+  flex: 1;
 }
 
 .actions {
   display: flex;
   gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .btn {
@@ -114,6 +133,7 @@ onMounted(loadCandidatures)
   text-decoration: none;
   font-size: 0.9rem;
   transition: background-color 0.2s;
+  white-space: nowrap;
 }
 
 .btn-primary {

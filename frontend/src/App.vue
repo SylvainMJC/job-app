@@ -25,6 +25,8 @@ import TheWelcome from './components/TheWelcome.vue'
 .app {
   min-height: 100vh;
   background-color: #f5f5f5;
+  display: flex;
+  flex-direction: column;
 }
 
 .navbar {
@@ -68,8 +70,11 @@ import TheWelcome from './components/TheWelcome.vue'
 }
 
 .container {
+  width: 100%;
   max-width: 1200px;
   margin: 0 auto;
   padding: 0 1rem;
 }
+
+/* Suppression des règles problématiques pour les grands écrans */
 </style>
