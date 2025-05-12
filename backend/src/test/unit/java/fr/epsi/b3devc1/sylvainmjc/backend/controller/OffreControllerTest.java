@@ -3,6 +3,7 @@ package fr.epsi.b3devc1.sylvainmjc.backend.controller;
 import fr.epsi.b3devc1.sylvainmjc.backend.entity.Offre;
 import fr.epsi.b3devc1.sylvainmjc.backend.repository.OffreRepository;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -22,6 +23,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
+@Tag("unit")
 @ActiveProfiles("test")
 class OffreControllerTest {
 

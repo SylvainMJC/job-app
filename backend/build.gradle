@@ -8,44 +8,28 @@ plugins {
 group = 'fr.epsi.b3devc1.sylvainmjc'
 version = '0.0.1-SNAPSHOT'
 
-java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(17)
-    }
-}
+// Configuration Java 17
+sourceCompatibility = JavaVersion.VERSION_17
+targetCompatibility = JavaVersion.VERSION_17
 
 repositories {
     mavenCentral()
 }
 
 ext {
-    testcontainersVersion = '1.19.8' // Version stable actuelle de TestContainers
+    testcontainersVersion = '1.19.8'
 }
 
-// Définition des source sets pour séparer les tests unitaires et d'intégration
+// Définition des source sets pour les tests
 sourceSets {
-    unitTest {
-        java.srcDir file('src/test/unit/java')
-        resources.srcDir file('src/test/unit/resources')
-        compileClasspath += sourceSets.main.output + configurations.testImplementation
-        runtimeClasspath += output + compileClasspath + configurations.testRuntimeOnly
+    test {
+        java {
+            srcDirs = ['src/test/unit/java', 'src/test/integration/java']
+        }
+        resources {
+            srcDirs = ['src/test/unit/resources', 'src/test/integration/resources']
+        }
     }
-    
-    integrationTest {
-        java.srcDir file('src/test/integration/java')
-        resources.srcDir file('src/test/integration/resources')
-        compileClasspath += sourceSets.main.output + configurations.testImplementation
-        runtimeClasspath += output + compileClasspath + configurations.testRuntimeOnly
-    }
-}
-
-// Configuration des dépendances pour les sources sets personnalisés
-configurations {
-    unitTestImplementation.extendsFrom testImplementation
-    unitTestRuntimeOnly.extendsFrom testRuntimeOnly
-    
-    integrationTestImplementation.extendsFrom testImplementation
-    integrationTestRuntimeOnly.extendsFrom testRuntimeOnly
 }
 
 dependencies {
@@ -62,54 +46,80 @@ dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter-params:5.10.1'
     testImplementation 'org.mockito:mockito-core:5.10.0'
     testImplementation 'org.mockito:mockito-junit-jupiter:5.10.0'
-    
-    // Dépendances pour les tests unitaires
-    unitTestImplementation 'com.h2database:h2:2.2.224'
-    
-    // Dépendances pour les tests d'intégration  
-    integrationTestImplementation "org.testcontainers:testcontainers:${testcontainersVersion}"
-    integrationTestImplementation "org.testcontainers:junit-jupiter:${testcontainersVersion}"
-    integrationTestImplementation "org.testcontainers:postgresql:${testcontainersVersion}"
+    testImplementation 'com.h2database:h2:2.2.224'
+    testImplementation "org.testcontainers:testcontainers:${testcontainersVersion}"
+    testImplementation "org.testcontainers:junit-jupiter:${testcontainersVersion}"
+    testImplementation "org.testcontainers:postgresql:${testcontainersVersion}"
     
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.10.1'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
-// Task for unit tests
+// Task pour tests unitaires 
 task unitTest(type: Test) {
     description = 'Runs unit tests.'
     group = 'verification'
     
-    testClassesDirs = sourceSets.unitTest.output.classesDirs
-    classpath = sourceSets.unitTest.runtimeClasspath
+    useJUnitPlatform {
+        includeTags 'unit'
+        excludeTags 'integration'
+    }
     
     // Définit le profil Spring Boot pour les tests unitaires
     systemProperty 'spring.profiles.active', 'test'
     
-    useJUnitPlatform()
-    
-    // Configuration du rapport JaCoCo pour les tests unitaires
     jacoco {
         destinationFile = file("${buildDir}/jacoco/unitTest.exec")
     }
 }
 
-// Task for integration tests
+// Task pour tests d'intégration
 task integrationTest(type: Test) {
     description = 'Runs integration tests.'
     group = 'verification'
     
-    testClassesDirs = sourceSets.integrationTest.output.classesDirs
-    classpath = sourceSets.integrationTest.runtimeClasspath
+    useJUnitPlatform {
+        includeTags 'integration'
+        excludeTags 'unit'
+    }
     
     // Définit le profil Spring Boot pour les tests d'intégration
     systemProperty 'spring.profiles.active', 'integration'
     
-    useJUnitPlatform()
-    
-    // Configuration du rapport JaCoCo pour les tests d'intégration
     jacoco {
         destinationFile = file("${buildDir}/jacoco/integrationTest.exec")
+    }
+}
+
+// Configuration des tests par défaut
+test {
+    useJUnitPlatform()
+    
+    jacoco {
+        destinationFile = file("${buildDir}/jacoco/test.exec")
+    }
+    
+    finalizedBy jacocoTestReport
+}
+
+// Rapport JaCoCo pour les tests
+jacocoTestReport {
+    dependsOn test
+    
+    reports {
+        xml.required = true
+        html.required = true
+    }
+    
+    afterEvaluate {
+        classDirectories.setFrom(files(classDirectories.files.collect {
+            fileTree(dir: it, exclude: [
+                    "**/*Application.class",
+                    "**/*Config.class",
+                    "**/entity/**",
+                    "**/dto/**"
+            ])
+        }))
     }
 }
 
@@ -171,12 +181,6 @@ task jacocoIntegrationTestReport(type: JacocoReport) {
             ])
         }))
     }
-}
-
-// Remplacer la tâche test standard pour exécuter les tests unitaires
-test {
-    dependsOn unitTest
-    enabled = false
 }
 
 // Tâche pour exécuter tous les tests (unitaires + intégration)
