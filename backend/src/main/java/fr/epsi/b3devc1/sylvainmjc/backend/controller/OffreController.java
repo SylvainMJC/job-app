@@ -20,6 +20,13 @@ public class OffreController {
         return offreRepository.findAll();
     }
 
+    @GetMapping("/{id}")
+    public ResponseEntity<Offre> getOffreById(@PathVariable Long id) {
+        return offreRepository.findById(id)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
     @PostMapping
     public Offre createOffre(@RequestBody Offre offre) {
         return offreRepository.save(offre);
@@ -30,6 +37,8 @@ public class OffreController {
         return offreRepository.findById(id)
                 .map(offre -> {
                     offre.setTitre(offreDetails.getTitre());
+                    offre.setEntreprise(offreDetails.getEntreprise());
+                    offre.setLocalisation(offreDetails.getLocalisation());
                     offre.setDescription(offreDetails.getDescription());
                     offre.setDateCreation(offreDetails.getDateCreation());
                     return ResponseEntity.ok(offreRepository.save(offre));

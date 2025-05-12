@@ -14,6 +14,8 @@ public class Offre {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     private String titre;
+    private String entreprise;
+    private String localisation;
     private String description;
     private LocalDateTime dateCreation;
 } 

@@ -20,6 +20,13 @@ public class CandidatureController {
         return candidatureRepository.findAll();
     }
 
+    @GetMapping("/{id}")
+    public ResponseEntity<Candidature> getCandidatureById(@PathVariable Long id) {
+        return candidatureRepository.findById(id)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
     @PostMapping
     public Candidature createCandidature(@RequestBody Candidature candidature) {
         return candidatureRepository.save(candidature);
@@ -30,9 +37,11 @@ public class CandidatureController {
         return candidatureRepository.findById(id)
                 .map(candidature -> {
                     candidature.setNom(candidatureDetails.getNom());
+                    candidature.setPrenom(candidatureDetails.getPrenom());
                     candidature.setEmail(candidatureDetails.getEmail());
-                    candidature.setCv(candidatureDetails.getCv());
-                    candidature.setDateCandidature(candidatureDetails.getDateCandidature());
+                    candidature.setTelephone(candidatureDetails.getTelephone());
+                    candidature.setMessage(candidatureDetails.getMessage());
+                    candidature.setDateCandidat(candidatureDetails.getDateCandidat());
                     candidature.setOffre(candidatureDetails.getOffre());
                     return ResponseEntity.ok(candidatureRepository.save(candidature));
                 })

@@ -15,9 +15,11 @@ public class Candidature {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     private String nom;
+    private String prenom;
     private String email;
-    private String cv;
-    private LocalDateTime dateCandidature;
+    private String telephone;
+    private String message;
+    private LocalDateTime dateCandidat;
     @ManyToOne
     private Offre offre;
 } 
