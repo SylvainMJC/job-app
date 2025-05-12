@@ -131,7 +131,20 @@ class CandidatureControllerTest {
     }
 
     @Test
-    void createCandidature_shouldCreateCandidature_whenOffreExists() {
+    void createCandidature_shouldCreateCandidature() {
+        // Arrange
+        when(candidatureRepository.save(any(Candidature.class))).thenReturn(candidature);
+
+        // Act
+        Candidature result = candidatureController.createCandidature(candidature);
+
+        // Assert
+        assertEquals(candidature, result);
+        verify(candidatureRepository, times(1)).save(candidature);
+    }
+
+    @Test
+    void createCandidatureForOffre_shouldCreateCandidature_whenOffreExists() {
         // Arrange
         when(offreRepository.findById(1L)).thenReturn(Optional.of(offre));
         when(candidatureRepository.save(any(Candidature.class))).thenReturn(candidature);
@@ -147,7 +160,7 @@ class CandidatureControllerTest {
     }
 
     @Test
-    void createCandidature_shouldReturnNotFound_whenOffreDoesNotExist() {
+    void createCandidatureForOffre_shouldReturnNotFound_whenOffreDoesNotExist() {
         // Arrange
         when(offreRepository.findById(1L)).thenReturn(Optional.empty());
 

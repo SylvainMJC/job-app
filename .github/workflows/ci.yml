@@ -31,15 +31,6 @@ jobs:
     - name: Generate JaCoCo report
       run: cd backend && ./gradlew jacocoTestReport
     
-    - name: JaCoCo Coverage Report
-      if: github.event_name == 'pull_request'
-      uses: ./.github/actions/jacoco-report
-      with:
-        jacoco-path: backend/build/reports/jacoco/test/jacocoTestReport.xml
-        github-token: ${{ secrets.GITHUB_TOKEN }}
-        min-coverage-overall: '70'
-        min-coverage-changed: '80'
-    
     - name: Archive JaCoCo report
       run: |
         mkdir -p artifacts

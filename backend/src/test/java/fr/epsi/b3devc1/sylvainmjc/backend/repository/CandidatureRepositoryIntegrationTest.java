@@ -40,8 +40,8 @@ class CandidatureRepositoryIntegrationTest {
         offre2.setDescription("Description du poste 2");
         offre2.setDateCreation(LocalDateTime.now());
 
-        offre1 = entityManager.persist(offre1);
-        offre2 = entityManager.persist(offre2);
+        final Offre savedOffre1 = entityManager.persist(offre1);
+        final Offre savedOffre2 = entityManager.persist(offre2);
 
         // Créer et sauvegarder des candidatures
         Candidature candidature1 = new Candidature();
@@ -51,7 +51,7 @@ class CandidatureRepositoryIntegrationTest {
         candidature1.setTelephone("0123456789");
         candidature1.setMessage("Je suis intéressé par ce poste");
         candidature1.setDateCandidat(LocalDateTime.now());
-        candidature1.setOffre(offre1);
+        candidature1.setOffre(savedOffre1);
 
         Candidature candidature2 = new Candidature();
         candidature2.setNom("Martin");
@@ -60,7 +60,7 @@ class CandidatureRepositoryIntegrationTest {
         candidature2.setTelephone("9876543210");
         candidature2.setMessage("Je suis intéressée par ce poste");
         candidature2.setDateCandidat(LocalDateTime.now());
-        candidature2.setOffre(offre1);
+        candidature2.setOffre(savedOffre1);
 
         Candidature candidature3 = new Candidature();
         candidature3.setNom("Durand");
@@ -69,7 +69,7 @@ class CandidatureRepositoryIntegrationTest {
         candidature3.setTelephone("5678901234");
         candidature3.setMessage("Je suis intéressé par ce poste");
         candidature3.setDateCandidat(LocalDateTime.now());
-        candidature3.setOffre(offre2);
+        candidature3.setOffre(savedOffre2);
 
         entityManager.persist(candidature1);
         entityManager.persist(candidature2);
@@ -77,15 +77,23 @@ class CandidatureRepositoryIntegrationTest {
         entityManager.flush();
 
         // Vérifier que les candidatures sont bien récupérées par offre
-        List<Candidature> candidaturesOffre1 = candidatureRepository.findByOffre(offre1);
-        List<Candidature> candidaturesOffre2 = candidatureRepository.findByOffre(offre2);
+        List<Candidature> candidaturesOffre1 = candidatureRepository.findByOffre(savedOffre1);
+        List<Candidature> candidaturesOffre2 = candidatureRepository.findByOffre(savedOffre2);
 
         assertEquals(2, candidaturesOffre1.size());
         assertEquals(1, candidaturesOffre2.size());
 
         // Vérifier que les candidatures récupérées sont bien associées à la bonne offre
-        candidaturesOffre1.forEach(candidature -> assertEquals(offre1.getId(), candidature.getOffre().getId()));
-        candidaturesOffre2.forEach(candidature -> assertEquals(offre2.getId(), candidature.getOffre().getId()));
+        final Long offre1Id = savedOffre1.getId();
+        final Long offre2Id = savedOffre2.getId();
+        
+        candidaturesOffre1.forEach(candidature -> 
+            assertEquals(offre1Id, candidature.getOffre().getId())
+        );
+        
+        candidaturesOffre2.forEach(candidature -> 
+            assertEquals(offre2Id, candidature.getOffre().getId())
+        );
     }
 
     @Test
