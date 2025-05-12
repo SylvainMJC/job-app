@@ -2,11 +2,13 @@ package fr.epsi.b3devc1.sylvainmjc.backend.entity;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.context.ActiveProfiles;
 
 import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+@ActiveProfiles("test")
 class OffreTest {
 
     private Offre offre;

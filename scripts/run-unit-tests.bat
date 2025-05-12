@@ -5,9 +5,9 @@ echo ===================================
 echo.
 
 cd %~dp0
-echo Execution des tests unitaires specifiques...
-gradlew.bat test --tests "fr.epsi.b3devc1.sylvainmjc.backend.entity.*Test"
-gradlew.bat test --tests "fr.epsi.b3devc1.sylvainmjc.backend.repository.*Test"
+cd ../backend
+echo Execution des tests unitaires...
+gradlew.bat unitTest
 
 echo.
 echo Fin de l'execution des tests.

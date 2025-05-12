@@ -14,8 +14,8 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 @DataJpaTest
-@ActiveProfiles("test")
-class CandidatureRepositoryIntegrationTest {
+@ActiveProfiles("integration")
+class CandidatureRepositoryIT {
 
     @Autowired
     private TestEntityManager entityManager;

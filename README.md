@@ -50,13 +50,11 @@ L'application sera disponible à :
    npm run dev
    ```
 
-## Tests unitaires
+## Tests
 
-### Backend
+### Tests unitaires
 
-Le backend utilise JUnit 5, Mockito et H2 comme base de données de test.
-
-Pour exécuter les tests et générer un rapport de couverture JaCoCo :
+Les tests unitaires utilisent JUnit 5, Mockito et H2 comme base de données de test en mémoire.
 
 ```bash
 # Sur Linux/macOS
@@ -68,17 +66,49 @@ cd backend
 .\run-tests.bat
 ```
 
-Le rapport de couverture sera généré dans `backend/build/reports/jacoco/test/html/index.html`.
+Le rapport de couverture JaCoCo pour les tests unitaires sera généré dans `backend/build/reports/jacoco/test/html/index.html`.
 
-### CI/CD avec GitHub Actions
+### Tests d'intégration
 
-Le projet est configuré avec une pipeline CI/CD GitHub Actions qui :
+Les tests d'intégration utilisent SpringBootTest et TestContainers pour démarrer automatiquement des conteneurs Docker pour les tests. Ils nécessitent que Docker soit installé et en cours d'exécution.
 
-1. Compile le backend et le frontend
-2. Exécute les tests unitaires
-3. Génère un rapport de couverture avec JaCoCo
-4. Publie le rapport de couverture en commentaire sur les Pull Requests
-5. Déploie automatiquement sur la branche `main`
+```bash
+# Sur Linux/macOS
+cd backend
+./run-integration-tests.sh
+
+# Sur Windows
+cd backend
+.\run-integration-tests.bat
+```
+
+Le rapport de couverture JaCoCo pour les tests d'intégration sera généré dans `backend/build/reports/jacoco/integration/html/index.html`.
+
+### Conventions de nommage des tests
+
+- **Tests unitaires** : fichiers nommés `*Test.java` 
+- **Tests d'intégration** : fichiers nommés `*IT.java`
+
+## CI/CD avec GitHub Actions
+
+Le projet est configuré avec deux pipelines CI/CD GitHub Actions :
+
+### 1. Pipeline de tests unitaires
+
+Ce workflow s'exécute à chaque commit et pull request :
+- Compile le backend et le frontend
+- Exécute les tests unitaires
+- Génère un rapport de couverture avec JaCoCo
+- Publie le rapport de couverture
+
+### 2. Pipeline de tests d'intégration
+
+Ce workflow utilise Docker-in-Docker (DIND) pour exécuter les tests d'intégration qui nécessitent des conteneurs Docker :
+- S'exécute à chaque commit et pull request
+- Configure un environnement Docker-in-Docker
+- Exécute uniquement les tests d'intégration
+- Génère un rapport de couverture spécifique aux tests d'intégration
+- Peut être déclenché manuellement depuis l'interface GitHub Actions
 
 ## Structure du projet
 
@@ -88,7 +118,7 @@ job-app/
 │   ├── src/main/         # Code source principal
 │   │   ├── java/         # Code Java
 │   │   └── resources/    # Ressources de configuration
-│   └── src/test/         # Tests unitaires
+│   └── src/test/         # Tests unitaires et d'intégration
 ├── frontend/             # Application Vue.js
 │   ├── public/           # Ressources statiques
 │   └── src/              # Code source
@@ -96,6 +126,7 @@ job-app/
 │       ├── views/        # Pages de l'application
 │       ├── router/       # Configuration du routeur
 │       └── services/     # Services API
+├── .github/workflows/    # Configuration CI/CD GitHub Actions
 └── docker-compose.yml    # Configuration Docker Compose
 ```
 
