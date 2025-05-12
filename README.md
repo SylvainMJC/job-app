@@ -1,98 +1,112 @@
-# Job App - Application de gestion d'offres d'emploi et de candidatures
+# Job App
 
-Une application web complète permettant de gérer des offres d'emploi et des candidatures. Cette application utilise une architecture moderne avec un backend Spring Boot et un frontend Vue.js.
+Application de gestion d'offres d'emploi et de candidatures, développée avec Spring Boot (backend) et Vue.js (frontend).
+
+## Architecture
+
+- **Backend** : Spring Boot (Java 17)
+- **Frontend** : Vue.js 3
+- **Base de données** : PostgreSQL
+- **Déploiement** : Docker
 
 ## Fonctionnalités
 
-### Gestion des offres d'emploi
-- Liste des offres disponibles
-- Ajout d'une nouvelle offre
-- Modification d'une offre existante
-- Suppression d'une offre
-- Affichage détaillé d'une offre
-
-### Gestion des candidatures
-- Liste des candidatures reçues
-- Ajout d'une nouvelle candidature
-- Modification d'une candidature existante
-- Suppression d'une candidature
-- Postuler directement à une offre depuis sa page de détail
-
-## Architecture technique
-
-### Backend (Spring Boot)
-- Java 17
-- Spring Boot 3
-- Spring Web (REST API)
-- Spring Data JPA
-- PostgreSQL
-- Lombok
-- Validation
-
-### Frontend (Vue.js)
-- Vue 3 (Composition API)
-- Vue Router
-- Axios
-- CSS moderne et responsive
-
-### Infrastructure
-- Docker & Docker Compose pour conteneuriser l'application
-- Base de données PostgreSQL
-- Serveurs web pour le frontend et le backend
+- Gestion des offres d'emploi (CRUD)
+- Gestion des candidatures (CRUD)
+- Affichage détaillé des offres avec formulaire de candidature intégré
+- Interface responsive
 
 ## Installation et démarrage
 
 ### Prérequis
+
+- Java 17
+- Node.js 18 ou supérieur
 - Docker et Docker Compose
-- Docker Desktop (pour Windows)
 
-### Démarrage rapide
-1. Clonez ce dépôt :
+### Démarrer l'application avec Docker Compose
+
 ```bash
-git clone https://github.com/votre-utilisateur/job-app.git
-cd job-app
+docker-compose up -d
 ```
 
-2. Lancez l'application avec Docker Compose :
+L'application sera disponible à :
+- Frontend : http://localhost:80
+- Backend : http://localhost:8080
+- Base de données : localhost:5432
+
+### Démarrage en développement
+
+1. **Backend**
+   ```bash
+   cd backend
+   ./gradlew bootRun
+   ```
+
+2. **Frontend**
+   ```bash
+   cd frontend
+   npm install
+   npm run dev
+   ```
+
+## Tests unitaires
+
+### Backend
+
+Le backend utilise JUnit 5, Mockito et H2 comme base de données de test.
+
+Pour exécuter les tests et générer un rapport de couverture JaCoCo :
+
 ```bash
-docker-compose up --build
+# Sur Linux/macOS
+cd backend
+./run-tests.sh
+
+# Sur Windows
+cd backend
+.\run-tests.bat
 ```
 
-3. Accédez à l'application :
-   - Frontend: http://localhost:80
-   - Backend API: http://localhost:8080
-   - Base de données PostgreSQL: localhost:5432 (jobapp/postgres/postgres)
+Le rapport de couverture sera généré dans `backend/build/reports/jacoco/test/html/index.html`.
+
+### CI/CD avec GitHub Actions
+
+Le projet est configuré avec une pipeline CI/CD GitHub Actions qui :
+
+1. Compile le backend et le frontend
+2. Exécute les tests unitaires
+3. Génère un rapport de couverture avec JaCoCo
+4. Publie le rapport de couverture en commentaire sur les Pull Requests
+5. Déploie automatiquement sur la branche `main`
 
 ## Structure du projet
 
 ```
 job-app/
-├── backend/              → Application Spring Boot
-│   ├── src/              → Code source Java
-│   └── Dockerfile        → Configuration Docker
-├── frontend/             → Application Vue.js
-│   ├── src/              → Code source JavaScript
-│   └── Dockerfile        → Configuration Docker
-├── docker-compose.yml    → Orchestration des services
-└── README.md             → Documentation du projet
+├── backend/              # Application Spring Boot
+│   ├── src/main/         # Code source principal
+│   │   ├── java/         # Code Java
+│   │   └── resources/    # Ressources de configuration
+│   └── src/test/         # Tests unitaires
+├── frontend/             # Application Vue.js
+│   ├── public/           # Ressources statiques
+│   └── src/              # Code source
+│       ├── components/   # Composants Vue
+│       ├── views/        # Pages de l'application
+│       ├── router/       # Configuration du routeur
+│       └── services/     # Services API
+└── docker-compose.yml    # Configuration Docker Compose
 ```
 
-## Développement
+## Maintien et contribution
 
-### Backend
-Le backend est accessible sur http://localhost:8080 et expose une API REST :
-- `/api/offres` : Gestion des offres d'emploi (GET, POST, PUT, DELETE)
-- `/api/candidatures` : Gestion des candidatures (GET, POST, PUT, DELETE)
+### Meilleurs pratiques
 
-### Frontend
-Le frontend est accessible sur http://localhost et comprend les pages suivantes :
-- `/offres` : Liste des offres d'emploi
-- `/offres/new` : Création d'une nouvelle offre
-- `/offres/:id` : Détail d'une offre avec formulaire de candidature
-- `/offres/:id/edit` : Modification d'une offre
-- `/candidatures` : Liste des candidatures
-- `/candidatures/new` : Création d'une nouvelle candidature
-- `/candidatures/:id/edit` : Modification d'une candidature
+1. **Tests** : Maintenir une couverture de test d'au moins 70%
+2. **CI/CD** : Utiliser des Pull Requests pour toutes les modifications
+3. **Documentation** : Documenter les nouvelles fonctionnalités dans le README
 
-## Licence
-Ce projet est distribué sous licence MIT. 
+### Licences
+
+Ce projet est distribué sous licence libre. 

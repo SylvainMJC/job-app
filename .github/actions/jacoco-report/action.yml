@@ -1,0 +1,67 @@
+name: 'JaCoCo Coverage Report'
+description: 'Generate JaCoCo coverage report and post as PR comment'
+inputs:
+  jacoco-path:
+    description: 'Path to the JaCoCo XML report'
+    required: true
+    default: 'backend/build/reports/jacoco/test/jacocoTestReport.xml'
+  github-token:
+    description: 'GitHub token'
+    required: true
+  min-coverage-overall:
+    description: 'Minimum coverage threshold (percentage) for the overall project'
+    required: false
+    default: '70'
+  min-coverage-changed:
+    description: 'Minimum coverage threshold (percentage) for changed files'
+    required: false
+    default: '80'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Parse JaCoCo Report
+      id: jacoco
+      shell: bash
+      run: |
+        echo "Parsing JaCoCo report from ${{ inputs.jacoco-path }}"
+        
+        if [ ! -f "${{ inputs.jacoco-path }}" ]; then
+          echo "::error::JaCoCo report not found at ${{ inputs.jacoco-path }}"
+          exit 1
+        fi
+        
+        # Extract overall coverage
+        OVERALL_COVERAGE=$(grep -oP 'line-rate="\K[^"]+' "${{ inputs.jacoco-path }}" | head -1)
+        OVERALL_COVERAGE_PCT=$(echo "$OVERALL_COVERAGE * 100" | bc)
+        OVERALL_COVERAGE_FORMATTED=$(printf "%.2f" $OVERALL_COVERAGE_PCT)
+        
+        # Create coverage report markdown
+        echo "## 📊 JaCoCo Coverage Report" > coverage-report.md
+        echo "" >> coverage-report.md
+        echo "Overall coverage: $OVERALL_COVERAGE_FORMATTED%" >> coverage-report.md
+        echo "" >> coverage-report.md
+        
+        # Check if coverage meets threshold
+        MIN_COVERAGE="${{ inputs.min-coverage-overall }}"
+        if (( $(echo "$OVERALL_COVERAGE_PCT < $MIN_COVERAGE" | bc -l) )); then
+          echo "⚠️ Coverage is below the minimum threshold of $MIN_COVERAGE%!" >> coverage-report.md
+          echo "::warning::Overall coverage ($OVERALL_COVERAGE_FORMATTED%) is below the minimum threshold ($MIN_COVERAGE%)!"
+        else
+          echo "✅ Coverage meets the minimum threshold of $MIN_COVERAGE%!" >> coverage-report.md
+        fi
+        
+        echo "overall_coverage=$OVERALL_COVERAGE_FORMATTED" >> $GITHUB_OUTPUT
+    
+    - name: Comment on PR
+      if: github.event_name == 'pull_request'
+      shell: bash
+      run: |
+        PR_COMMENT=$(cat coverage-report.md)
+        PR_NUMBER=$(echo $GITHUB_REF | sed 's/refs\/pull\///' | sed 's/\/merge//')
+        
+        curl -s -X POST \
+          -H "Authorization: token ${{ inputs.github-token }}" \
+          -H "Accept: application/vnd.github.v3+json" \
+          "https://api.github.com/repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
+          -d "{\"body\":$(echo "$PR_COMMENT" | jq -s -R .)}" 
