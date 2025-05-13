@@ -226,20 +226,56 @@ jobs:
         
         # Attendre que l'application démarre
         echo "Waiting for application to start..."
-        for i in {1..30}; do
-          echo "Checking if app is running (attempt $i)..."
+        max_attempts=45  # Increased wait time: 45 attempts * 2 seconds = 90 seconds
+        attempt=1
+        backend_started=false
+        
+        while [ $attempt -le $max_attempts ]; do
+          echo "Checking if app is running (attempt $attempt of $max_attempts)..."
           if curl -s http://localhost:8080/api/offres > /dev/null; then
             echo "Application is up and running!"
+            backend_started=true
             break
           fi
+          
+          # Check for common startup errors in the log
+          if grep -q "APPLICATION FAILED TO START" perf-test-app.log; then
+            echo "ERROR: Application failed to start. See logs below:"
+            cat perf-test-app.log
+            exit 1
+          fi
+          
+          attempt=$((attempt+1))
           sleep 2
         done
         
+        # Display application logs for debugging
         echo "Application logs:"
-        tail -n 20 perf-test-app.log
+        cat perf-test-app.log
         
+        # Fail the build if the backend didn't start
+        if [ "$backend_started" != "true" ]; then
+          echo "ERROR: Backend application did not start within the allocated time"
+          exit 1
+        fi
+        
+        # Verify database connectivity
+        echo "Verifying database connectivity..."
+        if grep -q "Started JobAppApplication" perf-test-app.log; then
+          echo "Application startup successful!"
+        else
+          echo "WARNING: Application may not be fully initialized."
+        fi
+    
     - name: Run simplified performance test
       run: |
+        # Verify connectivity before running tests
+        echo "Verifying backend connectivity before tests..."
+        if ! curl -s http://localhost:8080/api/offres > /dev/null; then
+          echo "ERROR: Backend is not accessible. Cannot run performance tests."
+          exit 1
+        fi
+        
         # Créer le répertoire pour les rapports
         mkdir -p backend/src/test/jmeter/reports
         
@@ -257,8 +293,13 @@ jobs:
           -v ${{ github.workspace }}/backend/src/test/jmeter/reports:/jmeter/reports \
           jmeter-tests \
           "localhost" "8080" "http" "2" "1" "3"
-      continue-on-error: true
-      
+        
+        # Verify test results
+        if [ $? -ne 0 ]; then
+          echo "ERROR: Performance tests failed"
+          exit 1
+        fi
+    
     - name: Capture logs after tests
       if: always()
       run: |
