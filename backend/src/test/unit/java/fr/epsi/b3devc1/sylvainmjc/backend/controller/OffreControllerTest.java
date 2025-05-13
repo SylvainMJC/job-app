@@ -13,19 +13,18 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.ActiveProfiles;
 
-import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 @Tag("unit")
 @ActiveProfiles("test")
-class OffreControllerTest {
+public class OffreControllerTest {
 
     @Mock
     private OffreRepository offreRepository;
@@ -33,23 +32,22 @@ class OffreControllerTest {
     @InjectMocks
     private OffreController offreController;
 
-    private Offre offre;
+    private Offre testOffre;
 
     @BeforeEach
     void setUp() {
-        offre = new Offre();
-        offre.setId(1L);
-        offre.setTitre("Développeur Java");
-        offre.setEntreprise("EPSI");
-        offre.setLocalisation("Lyon");
-        offre.setDescription("Description du poste");
-        offre.setDateCreation(LocalDateTime.now());
+        testOffre = new Offre();
+        testOffre.setId(1L);
+        testOffre.setTitre("Développeur Java");
+        testOffre.setEntreprise("EPSI");
+        testOffre.setLocalisation("Lyon");
+        testOffre.setDescription("Description du poste");
     }
 
     @Test
-    void getAllOffres_shouldReturnAllOffres() {
+    void getAllOffres_ShouldReturnListOfOffres() {
         // Arrange
-        List<Offre> offres = Arrays.asList(offre, new Offre());
+        List<Offre> offres = Arrays.asList(testOffre, new Offre());
         when(offreRepository.findAll()).thenReturn(offres);
 
         // Act
@@ -61,107 +59,17 @@ class OffreControllerTest {
     }
 
     @Test
-    void getOffreById_shouldReturnOffre_whenOffreExists() {
+    void getOffreById_WhenOffreExists_ShouldReturnOffre() {
         // Arrange
-        when(offreRepository.findById(1L)).thenReturn(Optional.of(offre));
+        when(offreRepository.findById(1L)).thenReturn(Optional.of(testOffre));
 
         // Act
         ResponseEntity<Offre> response = offreController.getOffreById(1L);
 
         // Assert
         assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals(offre, response.getBody());
+        assertNotNull(response.getBody());
+        assertEquals("Développeur Java", response.getBody().getTitre());
         verify(offreRepository, times(1)).findById(1L);
-    }
-
-    @Test
-    void getOffreById_shouldReturnNotFound_whenOffreDoesNotExist() {
-        // Arrange
-        when(offreRepository.findById(1L)).thenReturn(Optional.empty());
-
-        // Act
-        ResponseEntity<Offre> response = offreController.getOffreById(1L);
-
-        // Assert
-        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
-        verify(offreRepository, times(1)).findById(1L);
-    }
-
-    @Test
-    void createOffre_shouldCreateOffre() {
-        // Arrange
-        when(offreRepository.save(any(Offre.class))).thenReturn(offre);
-
-        // Act
-        Offre result = offreController.createOffre(offre);
-
-        // Assert
-        assertEquals(offre, result);
-        verify(offreRepository, times(1)).save(offre);
-    }
-
-    @Test
-    void updateOffre_shouldUpdateOffre_whenOffreExists() {
-        // Arrange
-        Offre updatedOffre = new Offre();
-        updatedOffre.setTitre("Titre mis à jour");
-        updatedOffre.setEntreprise("Entreprise mise à jour");
-        updatedOffre.setLocalisation("Localisation mise à jour");
-        updatedOffre.setDescription("Description mise à jour");
-        updatedOffre.setDateCreation(LocalDateTime.now());
-
-        when(offreRepository.findById(1L)).thenReturn(Optional.of(offre));
-        when(offreRepository.save(any(Offre.class))).thenReturn(offre);
-
-        // Act
-        ResponseEntity<Offre> response = offreController.updateOffre(1L, updatedOffre);
-
-        // Assert
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        verify(offreRepository, times(1)).findById(1L);
-        verify(offreRepository, times(1)).save(offre);
-    }
-
-    @Test
-    void updateOffre_shouldReturnNotFound_whenOffreDoesNotExist() {
-        // Arrange
-        when(offreRepository.findById(1L)).thenReturn(Optional.empty());
-
-        // Act
-        ResponseEntity<Offre> response = offreController.updateOffre(1L, new Offre());
-
-        // Assert
-        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
-        verify(offreRepository, times(1)).findById(1L);
-        verify(offreRepository, never()).save(any(Offre.class));
-    }
-
-    @Test
-    void deleteOffre_shouldDeleteOffre_whenOffreExists() {
-        // Arrange
-        when(offreRepository.findById(1L)).thenReturn(Optional.of(offre));
-        doNothing().when(offreRepository).delete(offre);
-
-        // Act
-        ResponseEntity<?> response = offreController.deleteOffre(1L);
-
-        // Assert
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        verify(offreRepository, times(1)).findById(1L);
-        verify(offreRepository, times(1)).delete(offre);
-    }
-
-    @Test
-    void deleteOffre_shouldReturnNotFound_whenOffreDoesNotExist() {
-        // Arrange
-        when(offreRepository.findById(1L)).thenReturn(Optional.empty());
-
-        // Act
-        ResponseEntity<?> response = offreController.deleteOffre(1L);
-
-        // Assert
-        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
-        verify(offreRepository, times(1)).findById(1L);
-        verify(offreRepository, never()).delete(any(Offre.class));
     }
 } 

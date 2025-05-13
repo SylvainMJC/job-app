@@ -50,8 +50,19 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x ./backend/gradlew
     
+    # Télécharger les artefacts de build pour éviter de recompiler
+    - name: Download backend build
+      uses: actions/download-artifact@v4
+      with:
+        name: backend-build
+        path: backend/build/libs/
+    
+    # Vérification des tests unitaires disponibles
+    - name: List unit test files
+      run: find backend/src/test/unit -name "*.java" | sort
+    
     - name: Run unit tests
-      run: cd backend && ./gradlew unitTest
+      run: cd backend && ./gradlew unitTest -i
     
     - name: Generate JaCoCo report for unit tests
       run: cd backend && ./gradlew jacocoUnitTestReport
@@ -61,6 +72,7 @@ jobs:
       with:
         name: jacoco-unit-reports
         path: backend/build/reports/jacoco/unit/
+        retention-days: 7
 
   backend-integration-tests:
     needs: [backend-build]
@@ -86,7 +98,7 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x ./backend/gradlew
     
-    # Download backend build artifacts
+    # Télécharger les artefacts de build pour éviter de recompiler
     - name: Download backend build
       uses: actions/download-artifact@v4
       with:
@@ -98,59 +110,24 @@ jobs:
       run: |
         docker info
         echo "TESTCONTAINERS_HOST_OVERRIDE=localhost" >> $GITHUB_ENV
-        echo "TESTCONTAINERS_REUSE_ENABLE=true" >> $GITHUB_ENV
-        echo "JAVA_TOOL_OPTIONS=-Djava.net.preferIPv4Stack=true" >> $GITHUB_ENV
-      
-    # Augmenter la mémoire disponible pour Gradle
-    - name: Setup Gradle properties
-      run: |
-        mkdir -p ~/.gradle
-        echo "org.gradle.jvmargs=-Xmx2g -XX:MaxMetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError" > ~/.gradle/gradle.properties
-        echo "org.gradle.daemon=false" >> ~/.gradle/gradle.properties
     
-    # Lancer un container PostgreSQL pour les tests d'intégration
-    - name: Start PostgreSQL container
-      run: |
-        docker run --name postgres-test -e POSTGRES_PASSWORD=testpass -e POSTGRES_USER=testuser -e POSTGRES_DB=integration-tests-db -p 5432:5432 -d postgres:15-alpine
-        echo "Waiting for PostgreSQL to start..."
-        sleep 10
-    
-    # Définir les variables d'environnement pour les tests d'intégration
-    - name: Set environment variables for integration tests
-      run: |
-        echo "SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/integration-tests-db" >> $GITHUB_ENV
-        echo "SPRING_DATASOURCE_USERNAME=testuser" >> $GITHUB_ENV
-        echo "SPRING_DATASOURCE_PASSWORD=testpass" >> $GITHUB_ENV
-        echo "SPRING_JPA_HIBERNATE_DDL_AUTO=create-drop" >> $GITHUB_ENV
-        echo "SPRING_DATASOURCE_HIKARI_AUTO_COMMIT=false" >> $GITHUB_ENV
-        echo "SPRING_JPA_PROPERTIES_HIBERNATE_CONNECTION_PROVIDER_DISABLES_AUTOCOMMIT=true" >> $GITHUB_ENV
+    # Vérification des tests d'intégration disponibles
+    - name: List integration test files
+      run: find backend/src/test/integration -name "*.java" | sort
     
     - name: Run integration tests
-      run: cd backend && ./gradlew integrationTest --info
+      run: cd backend && ./gradlew integrationTest -i
     
     - name: Generate JaCoCo report for integration tests
-      if: always()
       run: cd backend && ./gradlew jacocoIntegrationTestReport
     
     - name: Upload JaCoCo integration test reports
-      if: always()
       uses: actions/upload-artifact@v4
       with:
         name: jacoco-integration-reports
         path: backend/build/reports/jacoco/integration/
-    
-    - name: Upload test reports
-      if: failure()
-      uses: actions/upload-artifact@v4
-      with:
-        name: integration-test-reports
-        path: backend/build/reports/tests/integrationTest/
-    
-    # Arrêter le container PostgreSQL
-    - name: Stop PostgreSQL container
-      if: always()
-      run: docker stop postgres-test && docker rm postgres-test
-
+        retention-days: 7
+  
   frontend-build:
     runs-on: ubuntu-latest
     
@@ -202,7 +179,7 @@ jobs:
       with:
         name: frontend-unit-test-report
         path: frontend/coverage/
-        retention-days: 1
+        retention-days: 7
 
   # Job pour les tests end-to-end avec Playwright
   e2e-tests:
@@ -307,16 +284,21 @@ jobs:
       run: |
         echo "# Test Coverage Summary" > coverage-summary.md
         echo "## Backend Unit Tests" >> coverage-summary.md
-        echo "- Coverage details available in artifacts" >> coverage-summary.md
+        echo "- OffreTest: Test des propriétés et de l'égalité des offres" >> coverage-summary.md
+        echo "- OffreControllerTest: Test des méthodes du contrôleur avec des mocks" >> coverage-summary.md
+        echo "" >> coverage-summary.md
         echo "## Backend Integration Tests" >> coverage-summary.md
-        echo "- Coverage details available in artifacts" >> coverage-summary.md
+        echo "- OffreControllerIT: Test du contrôleur avec la base de données réelle" >> coverage-summary.md
+        echo "- OffreRepositoryIT: Test du repository avec une base PostgreSQL" >> coverage-summary.md
+        echo "" >> coverage-summary.md
         echo "## Frontend Unit Tests" >> coverage-summary.md
-        echo "- Coverage details available in artifacts" >> coverage-summary.md
+        echo "- LoginView.spec.js: Test du composant de login" >> coverage-summary.md
+        echo "- OffresView.spec.js: Test du composant d'affichage des offres" >> coverage-summary.md
     
     - name: Upload summary
       uses: actions/upload-artifact@v4
       with:
-        name: coverage-summary
+        name: test-summary
         path: coverage-summary.md
         retention-days: 7
 
@@ -340,6 +322,15 @@ jobs:
       with:
         name: frontend-build
         path: frontend-dist
+    
+    - name: Download test summary
+      uses: actions/download-artifact@v4
+      with:
+        name: test-summary
+        path: .
+    
+    - name: Display test summary
+      run: cat coverage-summary.md
     
     # Optionnel: Si vous avez un serveur de déploiement, ajoutez les étapes ici
     - name: Deploy to production
