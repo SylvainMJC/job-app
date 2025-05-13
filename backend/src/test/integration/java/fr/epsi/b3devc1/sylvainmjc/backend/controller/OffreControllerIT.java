@@ -1,5 +1,6 @@
 package fr.epsi.b3devc1.sylvainmjc.backend.controller;
 
+import fr.epsi.b3devc1.sylvainmjc.backend.config.PostgresTestContainer;
 import fr.epsi.b3devc1.sylvainmjc.backend.entity.Offre;
 import fr.epsi.b3devc1.sylvainmjc.backend.repository.OffreRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -10,9 +11,10 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.time.LocalDateTime;
@@ -29,11 +31,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Testcontainers
 public class OffreControllerIT {
 
-    @Container
-    static PostgreSQLContainer<?> postgresContainer = new PostgreSQLContainer<>("postgres:15-alpine")
-            .withDatabaseName("integration-tests-db")
-            .withUsername("testuser")
-            .withPassword("testpass");
+    private static final PostgreSQLContainer<?> postgresContainer = PostgresTestContainer.getInstance();
+            
+    @DynamicPropertySource
+    static void postgresqlProperties(DynamicPropertyRegistry registry) {
+        registry.add("spring.datasource.url", postgresContainer::getJdbcUrl);
+        registry.add("spring.datasource.username", postgresContainer::getUsername);
+        registry.add("spring.datasource.password", postgresContainer::getPassword);
+    }
 
     @Autowired
     private MockMvc mockMvc;

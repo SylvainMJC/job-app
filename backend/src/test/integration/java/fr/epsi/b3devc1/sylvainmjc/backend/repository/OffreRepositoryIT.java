@@ -1,5 +1,6 @@
 package fr.epsi.b3devc1.sylvainmjc.backend.repository;
 
+import fr.epsi.b3devc1.sylvainmjc.backend.config.PostgresTestContainer;
 import fr.epsi.b3devc1.sylvainmjc.backend.entity.Offre;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -7,8 +8,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.time.LocalDateTime;
@@ -24,11 +26,14 @@ import static org.junit.jupiter.api.Assertions.*;
 @Testcontainers
 public class OffreRepositoryIT {
 
-    @Container
-    static PostgreSQLContainer<?> postgresContainer = new PostgreSQLContainer<>("postgres:15-alpine")
-            .withDatabaseName("integration-tests-db")
-            .withUsername("testuser")
-            .withPassword("testpass");
+    private static final PostgreSQLContainer<?> postgresContainer = PostgresTestContainer.getInstance();
+
+    @DynamicPropertySource
+    static void postgresqlProperties(DynamicPropertyRegistry registry) {
+        registry.add("spring.datasource.url", postgresContainer::getJdbcUrl);
+        registry.add("spring.datasource.username", postgresContainer::getUsername);
+        registry.add("spring.datasource.password", postgresContainer::getPassword);
+    }
 
     @Autowired
     private OffreRepository offreRepository;
