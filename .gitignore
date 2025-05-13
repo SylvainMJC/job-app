@@ -53,4 +53,9 @@ coverage/
 *.local
 
 ### Docker ###
-.docker/ 
+.docker/
+
+### JMeter ###
+**/jmeter/reports/
+**/jmeter/results.jtl
+**/jmeter/jmeter.log 
