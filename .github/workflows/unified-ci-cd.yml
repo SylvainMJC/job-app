@@ -654,7 +654,7 @@ jobs:
         
         echo "Verifying frontend service:"
         curl -v http://localhost
-      
+    
     - name: ZAP Baseline Scan (Frontend)
       uses: zaproxy/action-baseline@v0.11.0
       with:
@@ -663,7 +663,7 @@ jobs:
         cmd_options: '-a -j'
         rules_file_name: ''
         fail_action: false
-        artifact_name: 'frontend-zap-scan'
+        artifact_name: ''
         docker_name: 'ghcr.io/zaproxy/zaproxy:stable'
     
     - name: ZAP API Scan (Backend)
@@ -674,20 +674,48 @@ jobs:
         format: openapi
         cmd_options: '-a'
         fail_action: false
-        artifact_name: 'api-zap-scan'
+        artifact_name: ''
         docker_name: 'ghcr.io/zaproxy/zaproxy:stable'
     
     - name: Collect ZAP Reports
       run: |
-        mkdir -p security-reports
-        # Copier les rapports générés par ZAP
-        cp zap-*-report.* security-reports/ || echo "No ZAP reports found to copy"
+        # Afficher les fichiers générés par ZAP pour le débogage
+        echo "Listing files in workspace:"
+        ls -la
+        echo "Listing report files:"
+        find . -name "report_*.json" -o -name "report_*.html" -o -name "report_*.md" -o -name "zap-*.html" -o -name "zap-*.md"
+        
+        # Copier les rapports bruts
+        cp -v report_*.json report_*.html report_*.md security-reports/ || echo "Couldn't copy some reports"
+        
+        # Renommer les rapports pour plus de clarté
+        if [ -f "report_html.html" ]; then
+          cp -v report_html.html security-reports/zap-baseline-report.html || echo "Failed to copy HTML report"
+        fi
+        if [ -f "report_md.md" ]; then
+          cp -v report_md.md security-reports/zap-baseline-report.md || echo "Failed to copy MD report"
+        fi
+        if [ -f "report_json.json" ]; then
+          cp -v report_json.json security-reports/zap-baseline-report.json || echo "Failed to copy JSON report"
+        fi
+        
         # Créer un rapport de synthèse
         echo "# ZAP Security Scan Results" > security-reports/summary.md
         echo "## Frontend Scan" >> security-reports/summary.md
-        echo "- Found `$(grep -c "WARN-NEW" zap-baseline-report.md || echo "0")` warnings" >> security-reports/summary.md
-        echo "## API Scan" >> security-reports/summary.md
-        echo "- Found `$(grep -c "WARN-NEW" zap-api-scan-report.md || echo "0")` warnings" >> security-reports/summary.md
+        if [ -f "report_md.md" ]; then
+          WARNS=$(grep -c "WARN-NEW" report_md.md || echo "0")
+          echo "- Found $WARNS warnings" >> security-reports/summary.md
+          
+          # Extraire les avertissements spécifiques pour le rapport
+          echo "### Warnings detected:" >> security-reports/summary.md
+          grep "WARN-NEW" report_md.md | sed 's/WARN-NEW:/- /' >> security-reports/summary.md || echo "- No details available" >> security-reports/summary.md
+        else
+          echo "- No report found" >> security-reports/summary.md
+        fi
+        
+        # Afficher le contenu du répertoire security-reports
+        echo "Contents of security-reports directory:"
+        ls -la security-reports/
       continue-on-error: true
     
     - name: Archive security reports
