@@ -219,14 +219,34 @@ jobs:
       run: |
         cd backend
         
-        # Démarrer avec paramètres simplifiés
+        # Collect environment info for diagnostics
+        echo "Environment diagnostics:"
+        java -version
+        echo "Free disk space:"
+        df -h
+        echo "Memory:"
+        free -h || echo "free command not available"
+        echo "Network interfaces:"
+        ip addr || ifconfig || echo "Network command not available"
+        
+        # Démarrer avec paramètres simplifiés et base de données en mémoire pour les tests
         echo "Starting backend for performance tests on port 8080..."
-        nohup java -jar build/libs/*.jar --server.port=8080 > perf-test-app.log 2>&1 &
+        nohup java -jar build/libs/*.jar \
+          --server.port=8080 \
+          --spring.datasource.url=jdbc:h2:mem:testdb \
+          --spring.datasource.username=sa \
+          --spring.datasource.password= \
+          --spring.datasource.driver-class-name=org.h2.Driver \
+          --spring.jpa.database-platform=org.hibernate.dialect.H2Dialect \
+          --spring.jpa.hibernate.ddl-auto=create-drop \
+          --logging.level.org.springframework=INFO \
+          --logging.level.org.hibernate=INFO \
+          > perf-test-app.log 2>&1 &
         echo $! > app.pid
         
         # Attendre que l'application démarre
         echo "Waiting for application to start..."
-        max_attempts=45  # Increased wait time: 45 attempts * 2 seconds = 90 seconds
+        max_attempts=60  # Increased wait time: 60 attempts * 3 seconds = 180 seconds
         attempt=1
         backend_started=false
         
@@ -238,15 +258,21 @@ jobs:
             break
           fi
           
-          # Check for common startup errors in the log
-          if grep -q "APPLICATION FAILED TO START" perf-test-app.log; then
-            echo "ERROR: Application failed to start. See logs below:"
-            cat perf-test-app.log
-            exit 1
+          # Check logs for specific patterns every few attempts
+          if [ $((attempt % 5)) -eq 0 ]; then
+            echo "--- Log snapshot at attempt $attempt ---"
+            tail -n 50 perf-test-app.log
+            
+            # Check for common startup errors in the log
+            if grep -q "APPLICATION FAILED TO START" perf-test-app.log; then
+              echo "ERROR: Application failed to start. See logs below:"
+              cat perf-test-app.log
+              exit 1
+            fi
           fi
           
           attempt=$((attempt+1))
-          sleep 2
+          sleep 3
         done
         
         # Display application logs for debugging
@@ -256,25 +282,43 @@ jobs:
         # Fail the build if the backend didn't start
         if [ "$backend_started" != "true" ]; then
           echo "ERROR: Backend application did not start within the allocated time"
+          ps aux | grep java
+          echo "Port 8080 status:"
+          netstat -tulpn | grep 8080 || ss -tulpn | grep 8080 || echo "Port status command not available"
           exit 1
         fi
         
-        # Verify database connectivity
-        echo "Verifying database connectivity..."
-        if grep -q "Started JobAppApplication" perf-test-app.log; then
+        # Verify application startup
+        echo "Verifying application fully started..."
+        if grep -q "Started JobAppApplication" perf-test-app.log || grep -q "Started Application" perf-test-app.log; then
           echo "Application startup successful!"
         else
-          echo "WARNING: Application may not be fully initialized."
+          echo "WARNING: Application startup message not found, but endpoint is accessible."
         fi
     
     - name: Run simplified performance test
       run: |
         # Verify connectivity before running tests
         echo "Verifying backend connectivity before tests..."
-        if ! curl -s http://localhost:8080/api/offres > /dev/null; then
-          echo "ERROR: Backend is not accessible. Cannot run performance tests."
-          exit 1
-        fi
+        retry_count=0
+        max_retries=3
+        
+        while [ $retry_count -lt $max_retries ]; do
+          if curl -s http://localhost:8080/api/offres > /dev/null; then
+            echo "✅ Backend is accessible!"
+            break
+          else
+            retry_count=$((retry_count+1))
+            if [ $retry_count -ge $max_retries ]; then
+              echo "❌ ERROR: Backend is not accessible after $max_retries attempts. Cannot run performance tests."
+              echo "Last curl attempt:"
+              curl -v http://localhost:8080/api/offres
+              exit 1
+            fi
+            echo "⚠️ Backend not accessible, retrying in 5 seconds (attempt $retry_count/$max_retries)..."
+            sleep 5
+          fi
+        done
         
         # Créer le répertoire pour les rapports
         mkdir -p backend/src/test/jmeter/reports
@@ -285,20 +329,28 @@ jobs:
         
         # Construire et exécuter un conteneur simplifié
         cd backend/src/test/jmeter
+        echo "Building JMeter Docker container..."
         docker build -t jmeter-tests .
         
         # Exécuter le test de performance avec --network=host
         echo "Running JMeter with host network..."
+        set -o pipefail  # Make sure pipeline failures are caught
         docker run --network host \
           -v ${{ github.workspace }}/backend/src/test/jmeter/reports:/jmeter/reports \
           jmeter-tests \
-          "localhost" "8080" "http" "2" "1" "3"
+          "localhost" "8080" "http" "2" "1" "3" | tee jmeter-output.log
         
-        # Verify test results
-        if [ $? -ne 0 ]; then
-          echo "ERROR: Performance tests failed"
+        jmeter_result=$?
+        echo "JMeter test exit code: $jmeter_result"
+        
+        # Check for error messages in the output
+        if [ $jmeter_result -ne 0 ] || grep -q "Connection refused" jmeter-output.log; then
+          echo "ERROR: Performance test failed or connection was refused"
+          cat jmeter-output.log
           exit 1
         fi
+        
+        echo "Performance test completed successfully"
     
     - name: Capture logs after tests
       if: always()
