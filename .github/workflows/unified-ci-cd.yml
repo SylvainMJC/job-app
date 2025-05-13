@@ -195,13 +195,28 @@ jobs:
     runs-on: ubuntu-latest
     needs: [backend-build]
     
-    # Configurer Docker-in-Docker pour exécuter JMeter
+    # Configurer Docker-in-Docker pour exécuter JMeter et PostgreSQL
     services:
       dind:
         image: docker:dind
         options: --privileged
         ports:
           - 2375:2375
+      # PostgreSQL pour les tests
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_DB: jobapp
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        # Set health checks to wait until postgres has started
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     
     steps:
     - uses: actions/checkout@v4
@@ -220,6 +235,11 @@ jobs:
     - name: Set execute permission for jar
       run: chmod +x backend/build/libs/*.jar
     
+    - name: Install PostgreSQL client
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y postgresql-client
+    
     - name: Start backend for performance tests
       run: |
         cd backend
@@ -234,8 +254,12 @@ jobs:
         echo "Network interfaces:"
         ip addr || ifconfig || echo "Network command not available"
         
-        # Démarrer avec paramètres simplifiés et base de données en mémoire pour les tests
+        # Démarrer avec paramètres simplifiés et base de données PostgreSQL pour les tests
         echo "Starting backend for performance tests on port 8080..."
+        
+        # Vérifier la disponibilité de PostgreSQL
+        echo "Checking PostgreSQL connectivity..."
+        pg_isready -h localhost -p 5432 || echo "PostgreSQL not ready yet"
         
         # List available JAR files for diagnostic purposes
         echo "Available JAR files:"
@@ -252,12 +276,12 @@ jobs:
         
         nohup java -jar "$EXECUTABLE_JAR" \
           --server.port=8080 \
-          --spring.datasource.url=jdbc:h2:mem:testdb \
-          --spring.datasource.username=sa \
-          --spring.datasource.password= \
-          --spring.datasource.driver-class-name=org.h2.Driver \
-          --spring.jpa.database-platform=org.hibernate.dialect.H2Dialect \
-          --spring.jpa.hibernate.ddl-auto=create-drop \
+          --spring.datasource.url=jdbc:postgresql://localhost:5432/jobapp \
+          --spring.datasource.username=postgres \
+          --spring.datasource.password=postgres \
+          --spring.datasource.driver-class-name=org.postgresql.Driver \
+          --spring.jpa.database-platform=org.hibernate.dialect.PostgreSQLDialect \
+          --spring.jpa.hibernate.ddl-auto=update \
           --logging.level.org.springframework=INFO \
           --logging.level.org.hibernate=INFO \
           > perf-test-app.log 2>&1 &
