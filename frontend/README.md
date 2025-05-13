@@ -1,29 +1,81 @@
-# frontend
+# Frontend Application
 
-This template should help get you started developing with Vue 3 in Vite.
+## Technologies
 
-## Recommended IDE Setup
+- Vue.js 3.5.x
+- Vue Router
+- Axios
+- Vite
+- Vitest
+- Playwright
+- Tailwind CSS
 
-[VSCode](https://code.visualstudio.com/) + [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+## Development
 
-## Customize configuration
+### Setup
 
-See [Vite Configuration Reference](https://vite.dev/config/).
-
-## Project Setup
-
-```sh
+```bash
 npm install
 ```
 
-### Compile and Hot-Reload for Development
+### Run Development Server
 
-```sh
+```bash
 npm run dev
 ```
 
-### Compile and Minify for Production
+### Build for Production
 
-```sh
+```bash
 npm run build
 ```
+
+### Preview Production Build
+
+```bash
+npm run preview
+```
+
+## Testing
+
+### Unit Tests
+
+Unit tests are implemented using Vitest and Vue Test Utils. These tests verify the functionality of individual components.
+
+To run unit tests:
+```bash
+npm run test:unit
+```
+
+To run unit tests with hot reloading:
+```bash
+npm run test:unit:watch
+```
+
+To generate a coverage report:
+```bash
+npm run test:unit:coverage
+```
+
+### End-to-End Tests
+
+End-to-end tests are implemented using Playwright. These tests verify user flows through the application.
+
+To run E2E tests:
+```bash
+npm run test:e2e
+```
+
+To run E2E tests with a UI:
+```bash
+npm run test:e2e:ui
+```
+
+To debug E2E tests:
+```bash
+npm run test:e2e:debug
+```
+
+## Docker Support
+
+The frontend application can be containerized using the provided Dockerfile. The Docker image uses Nginx to serve the built application.

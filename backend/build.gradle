@@ -8,17 +8,18 @@ plugins {
 group = 'fr.epsi.b3devc1.sylvainmjc'
 version = '0.0.1-SNAPSHOT'
 
-// Configuration Java 17
-sourceCompatibility = JavaVersion.VERSION_17
-targetCompatibility = JavaVersion.VERSION_17
+// Configuration Java 17 (previous version to ensure compatibility)
+sourceCompatibility = '17'
+targetCompatibility = '17'
 
 repositories {
     mavenCentral()
 }
 
-
 ext {
     testcontainersVersion = '1.19.8'
+    jjwtVersion = '0.11.5'
+    springSecurityVersion = '6.2.3'
 }
 
 // Définition des source sets pour les tests
@@ -38,6 +39,17 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.postgresql:postgresql'
+    
+    // Spring Security - updated to ensure all components are included
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation "org.springframework.security:spring-security-config:${springSecurityVersion}"
+    implementation "org.springframework.security:spring-security-web:${springSecurityVersion}"
+    
+    // JWT - ensure all components are included with correct version
+    implementation "io.jsonwebtoken:jjwt-api:${jjwtVersion}"
+    runtimeOnly "io.jsonwebtoken:jjwt-impl:${jjwtVersion}"
+    runtimeOnly "io.jsonwebtoken:jjwt-jackson:${jjwtVersion}"
+    
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
     
@@ -51,6 +63,7 @@ dependencies {
     testImplementation "org.testcontainers:testcontainers:${testcontainersVersion}"
     testImplementation "org.testcontainers:junit-jupiter:${testcontainersVersion}"
     testImplementation "org.testcontainers:postgresql:${testcontainersVersion}"
+    testImplementation 'org.springframework.security:spring-security-test'
     
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.10.1'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'

@@ -8,8 +8,7 @@ test('la page d\'accueil devrait être chargée correctement', async ({ page }) 
 
 test('navigation vers la page des offres', async ({ page }) => {
   await page.goto('/');
-  // Cliquer sur le lien "Offres" si disponible
-  // Si le lien n'existe pas encore, vous devrez adapter ce test
-  await page.getByRole('link', { name: 'Offres' }).click();
+  // Utiliser un sélecteur plus spécifique pour cibler uniquement le lien de navigation
+  await page.locator('.nav-links .nav-item', { hasText: 'Offres' }).click();
   await expect(page).toHaveURL(/.*offres/);
 }); 

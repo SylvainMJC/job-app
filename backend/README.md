@@ -91,4 +91,69 @@ Le rapport de couverture JaCoCo pour les tests d'intégration sera généré dan
 - `POST /api/candidatures` - Créer une candidature
 - `POST /api/candidatures/offre/{offreId}` - Créer une candidature pour une offre
 - `PUT /api/candidatures/{id}` - Mettre à jour une candidature
-- `DELETE /api/candidatures/{id}` - Supprimer une candidature 
+- `DELETE /api/candidatures/{id}` - Supprimer une candidature
+
+## Technologies
+
+- Spring Boot 3.2.5
+- Java 17
+- Spring Security
+- JWT Authentication
+- PostgreSQL
+- TestContainers
+- JaCoCo
+
+## Configuration
+
+### JWT Authentication
+
+This application uses JWT version 0.11.5 for authentication. This version was chosen for compatibility reasons as the newer 0.12.x versions require a different API for parsing tokens.
+
+JWT tokens are used for the following roles:
+- CANDIDAT: Users who can apply to jobs
+- RECRUTEUR: Users who can post and manage jobs
+- ADMIN: Users with full access to all features
+
+### Database
+
+The application uses PostgreSQL in production and for integration tests. For unit tests, it uses H2 in-memory database.
+
+## Testing
+
+### Unit Tests
+
+Unit tests are run with the H2 in-memory database and use the JUnit 5 framework with the `@Tag("unit")` annotation.
+
+To run unit tests:
+```bash
+./gradlew unitTest
+```
+
+### Integration Tests
+
+Integration tests use TestContainers to spin up a PostgreSQL database and are tagged with `@Tag("integration")` annotation.
+
+To run integration tests:
+```bash
+./gradlew integrationTest
+```
+
+### Code Coverage
+
+JaCoCo is used for code coverage reporting. Separate reports are generated for unit and integration tests.
+
+To generate all reports:
+```bash
+./gradlew allTests
+```
+
+## Building the Application
+
+To build the application without running tests:
+```bash
+./gradlew build -x test
+```
+
+## Docker Support
+
+The application can be run in a Docker container using the provided Dockerfile. The Docker image uses OpenJDK 17. 
