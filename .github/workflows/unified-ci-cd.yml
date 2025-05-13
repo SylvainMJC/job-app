@@ -185,6 +185,93 @@ jobs:
         path: frontend/coverage/
         retention-days: 7
 
+  # Job pour les tests de performance avec JMeter
+  performance-tests:
+    runs-on: ubuntu-latest
+    needs: [backend-build]
+    
+    # Configurer Docker-in-Docker pour exécuter JMeter
+    services:
+      dind:
+        image: docker:dind
+        options: --privileged
+        ports:
+          - 2375:2375
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Docker
+      uses: docker/setup-buildx-action@v2
+      with:
+        driver-opts: network=host
+    
+    - name: Download backend build
+      uses: actions/download-artifact@v4
+      with:
+        name: backend-build
+        path: backend/build/libs/
+    
+    - name: Set execute permission for jar
+      run: chmod +x backend/build/libs/*.jar
+    
+    - name: Start backend for performance tests
+      run: |
+        cd backend
+        java -jar build/libs/*.jar &
+        echo "Waiting for backend to start..."
+        sleep 30
+      env:
+        SPRING_PROFILES_ACTIVE: test
+    
+    - name: Build JMeter Docker image
+      run: |
+        cd backend/src/test/jmeter
+        docker build -t jmeter-performance-tests .
+    
+    - name: Run JMeter performance tests
+      run: |
+        docker run --network host \
+          -v ${{ github.workspace }}/backend/src/test/jmeter/reports:/jmeter/reports \
+          jmeter-performance-tests \
+          "localhost" "8080" "http" "10" "5" "30"
+      continue-on-error: true
+    
+    - name: Archive performance test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: performance-test-reports
+        path: backend/src/test/jmeter/reports/
+        retention-days: 7
+    
+    - name: Generate performance summary
+      if: always()
+      run: |
+        echo "# Performance Test Summary" > performance-summary.md
+        echo "## Test Configuration" >> performance-summary.md
+        echo "- Threads: 10" >> performance-summary.md
+        echo "- Ramp-up: 5 seconds" >> performance-summary.md
+        echo "- Duration: 30 seconds" >> performance-summary.md
+        echo "" >> performance-summary.md
+        echo "## Results" >> performance-summary.md
+        
+        if [ -f backend/src/test/jmeter/reports/statistics.json ]; then
+          echo "- Status: Success" >> performance-summary.md
+          echo "- [Detailed Report Available](../artifacts/performance-test-reports/index.html)" >> performance-summary.md
+        else
+          echo "- Status: Failed" >> performance-summary.md
+          echo "- No statistics available" >> performance-summary.md
+        fi
+    
+    - name: Upload performance summary
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: performance-summary
+        path: performance-summary.md
+        retention-days: 7
+
   # Job pour les tests end-to-end avec Playwright
   e2e-tests:
     runs-on: ubuntu-latest
@@ -260,7 +347,7 @@ jobs:
 
   # Rapport de qualité code et déploiement (Jobs fusionnés)
   code-quality-and-deploy:
-    needs: [backend-unit-tests, backend-integration-tests, frontend-unit-tests, e2e-tests]
+    needs: [backend-unit-tests, backend-integration-tests, frontend-unit-tests, e2e-tests, performance-tests]
     runs-on: ubuntu-latest
     if: always() # Run even if some tests failed
     
@@ -288,6 +375,13 @@ jobs:
         path: reports/frontend-coverage
       continue-on-error: true
     
+    - name: Download performance test summary
+      uses: actions/download-artifact@v4
+      with:
+        name: performance-summary
+        path: reports/performance
+      continue-on-error: true
+    
     - name: Generate summary
       run: |
         echo "# Test Coverage Summary" > coverage-summary.md
@@ -302,6 +396,13 @@ jobs:
         echo "## Frontend Unit Tests" >> coverage-summary.md
         echo "- LoginView.spec.js: Test du composant de login" >> coverage-summary.md
         echo "- OffresView.spec.js: Test du composant d'affichage des offres" >> coverage-summary.md
+        echo "" >> coverage-summary.md
+        echo "## Performance Tests" >> coverage-summary.md
+        if [ -f reports/performance/performance-summary.md ]; then
+          cat reports/performance/performance-summary.md >> coverage-summary.md
+        else
+          echo "- Performance test results not available" >> coverage-summary.md
+        fi
     
     - name: Upload summary
       uses: actions/upload-artifact@v4
