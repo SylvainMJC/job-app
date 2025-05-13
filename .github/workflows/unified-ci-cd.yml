@@ -228,10 +228,18 @@ jobs:
       run: |
         cd backend/src/test/jmeter
         docker build -t jmeter-performance-tests .
+        
+    - name: Verify JMeter test files in Docker image
+      run: |
+        docker run --rm jmeter-performance-tests ls -la /jmeter/test-plan/
     
     - name: Run JMeter performance tests
       run: |
-        docker run --network host \
+        # Créer le répertoire pour les rapports
+        mkdir -p backend/src/test/jmeter/reports
+        
+        # Exécuter les tests de performance
+        docker run --rm --network host \
           -v ${{ github.workspace }}/backend/src/test/jmeter/reports:/jmeter/reports \
           jmeter-performance-tests \
           "localhost" "8080" "http" "10" "5" "30"

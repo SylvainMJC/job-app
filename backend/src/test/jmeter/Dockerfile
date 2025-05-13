@@ -23,8 +23,10 @@ RUN mkdir -p /jmeter/test-plan /jmeter/reports
 COPY api-performance-test.jmx /jmeter/test-plan/
 COPY run-performance-tests.sh /jmeter/
 
-# Rendre le script exécutable
-RUN chmod +x /jmeter/run-performance-tests.sh
+# Vérification de la présence des fichiers et permissions
+RUN chmod +x /jmeter/run-performance-tests.sh && \
+    ls -la /jmeter/test-plan/ && \
+    ls -la /jmeter/
 
 # Définir le répertoire de travail
 WORKDIR /jmeter

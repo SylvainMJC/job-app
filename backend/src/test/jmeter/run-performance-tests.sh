@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Configuration des variables
-TEST_PLAN="api-performance-test.jmx"
+TEST_PLAN="/jmeter/test-plan/api-performance-test.jmx"
 REPORT_DIR="/jmeter/reports"
 RESULTS_FILE="/jmeter/results.jtl"
 HOST=${1:-localhost}
