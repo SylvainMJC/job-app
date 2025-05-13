@@ -218,9 +218,33 @@ jobs:
     - name: Start backend for performance tests
       run: |
         cd backend
-        java -jar build/libs/*.jar &
+        # Afficher le port de l'application
+        grep -r "server.port" src/main/resources/application*.properties || echo "Using default port 8080"
+        
+        # Démarrer l'application avec un port explicite
+        java -jar build/libs/*.jar --server.port=8080 &
+        
         echo "Waiting for backend to start..."
-        sleep 30
+        # Attendre plus longtemps pour s'assurer que l'application est prête
+        sleep 45
+        
+        # Vérifier que l'application est accessible
+        curl -v http://localhost:8080/actuator/health || echo "Health check failed but continuing"
+        
+        # Vérifier le endpoint d'API
+        curl -v http://localhost:8080/api/offres || echo "API check failed but continuing"
+        
+        # Vérifier si le port est ouvert
+        echo "Checking port 8080..."
+        if command -v nc &> /dev/null; then
+          nc -z -v localhost 8080 || echo "Port check failed but continuing"
+        else
+          echo "netcat not available, skipping port check"
+        fi
+        
+        # Vérifier les processus en écoute
+        echo "Processes listening on port 8080:"
+        lsof -i :8080 || netstat -tuln | grep 8080 || ss -tuln | grep 8080 || echo "No port info tools available"
       env:
         SPRING_PROFILES_ACTIVE: test
     
@@ -238,11 +262,17 @@ jobs:
         # Créer le répertoire pour les rapports
         mkdir -p backend/src/test/jmeter/reports
         
-        # Exécuter les tests de performance
-        docker run --rm --network host \
+        # Obtenir l'adresse IP locale à utiliser au lieu de localhost
+        HOST_IP=$(hostname -I | awk '{print $1}')
+        echo "Host IP: $HOST_IP"
+        
+        # Exécuter les tests de performance avec accès à l'hôte
+        docker run --rm \
+          --network host \
+          --add-host=host.docker.internal:host-gateway \
           -v ${{ github.workspace }}/backend/src/test/jmeter/reports:/jmeter/reports \
           jmeter-performance-tests \
-          "localhost" "8080" "http" "10" "5" "30"
+          "host.docker.internal" "8080" "http" "10" "5" "30"
       continue-on-error: true
     
     - name: Archive performance test results
