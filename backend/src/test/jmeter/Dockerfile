@@ -6,9 +6,10 @@ ENV JMETER_HOME="/opt/apache-jmeter-${JMETER_VERSION}"
 ENV JMETER_BIN="${JMETER_HOME}/bin"
 ENV PATH="$JMETER_BIN:$PATH"
 
-# Installation des dépendances
+# Installation des dépendances et outils de diagnostic réseau
 RUN apk update && \
-    apk add --no-cache ca-certificates openjdk11-jre wget bash grep
+    apk add --no-cache ca-certificates openjdk11-jre wget bash grep \
+    curl iputils bind-tools netcat-openbsd net-tools iproute2
 
 # Téléchargement et installation de JMeter
 RUN mkdir -p /opt && \
@@ -35,4 +36,4 @@ WORKDIR /jmeter
 ENTRYPOINT ["/jmeter/run-performance-tests.sh"]
 
 # Paramètres par défaut
-CMD ["localhost", "8080", "http", "20", "10", "60"] 
+CMD ["localhost", "8080", "http", "2", "1", "3"] 
