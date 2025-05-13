@@ -654,32 +654,34 @@ jobs:
         
         echo "Verifying frontend service:"
         curl -v http://localhost
-        
-        # Exécuter le scan OWASP ZAP
-        echo "Running OWASP ZAP scan..."
-        docker run --network host -v $(pwd)/security-reports:/zap/wrk/:rw owasp/zap2docker-stable:latest zap-baseline.py \
-          -t http://localhost:80 \
-          -g gen.conf \
-          -r security-report.html \
-          -l PASS \
-          -a \
-          || echo "ZAP scan completed with warnings/errors"
-        
-        # Scan de l'API backend également
-        docker run --network host -v $(pwd)/security-reports:/zap/wrk/:rw owasp/zap2docker-stable:latest zap-api-scan.py \
-          -t http://localhost:8080/api/offres \
-          -r api-security-report.html \
-          -l PASS \
-          -a \
-          || echo "ZAP API scan completed with warnings/errors"
-      continue-on-error: true  # Le scan peut signaler des vulnérabilités mais ne doit pas faire échouer le workflow
+      
+    - name: ZAP Baseline Scan (Frontend)
+      uses: zaproxy/action-baseline@v0.11.0
+      with:
+        target: 'http://localhost:80'
+        allow_issue_writing: false
+        cmd_options: '-a -j'
+        rules_file_name: ''
+        fail_action: false
+    
+    - name: ZAP API Scan (Backend)
+      uses: zaproxy/action-api-scan@v0.7.0
+      with:
+        target: 'http://localhost:8080/api/offres'
+        allow_issue_writing: false
+        format: openapi
+        cmd_options: '-a'
+        fail_action: false
     
     - name: Archive security reports
       uses: actions/upload-artifact@v4
       if: always()
       with:
         name: security-reports
-        path: security-reports/
+        path: |
+          *-report.html
+          *-report.md
+          security-reports/
         retention-days: 7
     
     - name: Generate security summary
@@ -688,16 +690,16 @@ jobs:
         echo "# Security Test Summary" > security-summary.md
         echo "## Results" >> security-summary.md
         
-        if [ -f security-reports/security-report.html ]; then
+        if [ -f zap-baseline-report.html ] || [ -f *-baseline-report.html ]; then
           echo "- Frontend Security Scan: Completed" >> security-summary.md
-          echo "- [Detailed Frontend Report Available](../artifacts/security-reports/security-report.html)" >> security-summary.md
+          echo "- [Detailed Frontend Report Available in Artifacts]" >> security-summary.md
         else
           echo "- Frontend Security Scan: Failed or not completed" >> security-summary.md
         fi
         
-        if [ -f security-reports/api-security-report.html ]; then
+        if [ -f zap-api-scan-report.html ] || [ -f *-api-scan-report.html ]; then
           echo "- API Security Scan: Completed" >> security-summary.md
-          echo "- [Detailed API Report Available](../artifacts/security-reports/api-security-report.html)" >> security-summary.md
+          echo "- [Detailed API Report Available in Artifacts]" >> security-summary.md
         else
           echo "- API Security Scan: Failed or not completed" >> security-summary.md
         fi
