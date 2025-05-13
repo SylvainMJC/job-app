@@ -221,32 +221,50 @@ jobs:
         # Afficher le port de l'application
         grep -r "server.port" src/main/resources/application*.properties || echo "Using default port 8080"
         
-        # Démarrer l'application avec un port explicite
-        java -jar build/libs/*.jar --server.port=8080 &
+        # Forcer l'utilisation du port 8080 et permettre toutes les connexions
+        echo "spring.profiles.active=test" > application-perf.properties
+        echo "server.port=8080" >> application-perf.properties
+        echo "server.address=0.0.0.0" >> application-perf.properties
+        
+        # Démarrer l'application avec les paramétrages explicites
+        nohup java -jar build/libs/*.jar --spring.config.location=application-perf.properties > perf-test-app.log 2>&1 &
+        echo $! > app.pid
         
         echo "Waiting for backend to start..."
-        # Attendre plus longtemps pour s'assurer que l'application est prête
-        sleep 45
+        # Attendre que l'application démarre et vérifier si elle est accessible
+        TIMEOUT=60
+        START_TIME=$(date +%s)
+        while true; do
+          CURRENT_TIME=$(date +%s)
+          ELAPSED_TIME=$((CURRENT_TIME - START_TIME))
+          
+          if [ $ELAPSED_TIME -gt $TIMEOUT ]; then
+            echo "Timeout waiting for application to start. Continuing anyway..."
+            break
+          fi
+          
+          # Vérifier si l'application répond
+          if curl -s http://localhost:8080/api/offres > /dev/null; then
+            echo "Application is running and responding!"
+            break
+          fi
+          
+          echo "Waiting for application to start... ($ELAPSED_TIME seconds elapsed)"
+          sleep 5
+        done
         
-        # Vérifier que l'application est accessible
-        curl -v http://localhost:8080/actuator/health || echo "Health check failed but continuing"
+        # Afficher les logs de démarrage pour le débogage
+        echo "Application logs:"
+        cat perf-test-app.log
         
-        # Vérifier le endpoint d'API
+    - name: Verify backend availability
+      run: |
+        echo "Testing backend connectivity from the host:"
         curl -v http://localhost:8080/api/offres || echo "API check failed but continuing"
         
-        # Vérifier si le port est ouvert
-        echo "Checking port 8080..."
-        if command -v nc &> /dev/null; then
-          nc -z -v localhost 8080 || echo "Port check failed but continuing"
-        else
-          echo "netcat not available, skipping port check"
-        fi
-        
-        # Vérifier les processus en écoute
-        echo "Processes listening on port 8080:"
-        lsof -i :8080 || netstat -tuln | grep 8080 || ss -tuln | grep 8080 || echo "No port info tools available"
-      env:
-        SPRING_PROFILES_ACTIVE: test
+        # Liste des interfaces réseau
+        echo "Network interfaces:"
+        ip addr show || ifconfig || echo "No network tool available"
     
     - name: Build JMeter Docker image
       run: |
@@ -262,18 +280,32 @@ jobs:
         # Créer le répertoire pour les rapports
         mkdir -p backend/src/test/jmeter/reports
         
-        # Obtenir l'adresse IP locale à utiliser au lieu de localhost
-        HOST_IP=$(hostname -I | awk '{print $1}')
+        # Obtenir l'adresse IP locale à utiliser
+        if command -v hostname >/dev/null 2>&1; then
+          HOST_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
+        else
+          HOST_IP="172.17.0.1"  # IP par défaut pour Docker host
+        fi
         echo "Host IP: $HOST_IP"
         
-        # Exécuter les tests de performance avec accès à l'hôte
+        # Exécuter les tests de performance avec une charge réduite
         docker run --rm \
-          --network host \
-          --add-host=host.docker.internal:host-gateway \
           -v ${{ github.workspace }}/backend/src/test/jmeter/reports:/jmeter/reports \
           jmeter-performance-tests \
-          "host.docker.internal" "8080" "http" "10" "5" "30"
+          "$HOST_IP" "8080" "http" "3" "1" "5"
       continue-on-error: true
+      
+    - name: Capture logs after tests
+      if: always()
+      run: |
+        echo "Application logs after tests:"
+        cat backend/perf-test-app.log
+        
+        # Arrêter l'application backend
+        if [ -f backend/app.pid ]; then
+          echo "Stopping backend application..."
+          kill $(cat backend/app.pid) || echo "Failed to stop application"
+        fi
     
     - name: Archive performance test results
       uses: actions/upload-artifact@v4

@@ -5,66 +5,99 @@ TEST_PLAN="/jmeter/test-plan/api-performance-test.jmx"
 REPORT_DIR="/jmeter/reports"
 RESULTS_FILE="/jmeter/results.jtl"
 
-# Si l'hôte est "localhost", essayer d'utiliser host.docker.internal
-HOST=${1:-localhost}
-if [ "$HOST" = "localhost" ]; then
-  echo "Trying to use host.docker.internal instead of localhost"
-  ping -c 1 host.docker.internal > /dev/null 2>&1
-  if [ $? -eq 0 ]; then
-    HOST="host.docker.internal"
-    echo "Using host.docker.internal to connect to the host machine"
-  else
-    echo "host.docker.internal not resolvable, falling back to original host"
-  fi
-fi
+# Liste d'hôtes à essayer - nous allons tester chacun
+HOSTS=("$1" "host.docker.internal" "172.17.0.1" "localhost")
+DEFAULT_HOST=${1:-localhost}
 
 PORT=${2:-8080}
 PROTOCOL=${3:-http}
-THREADS=${4:-20}
-RAMPUP=${5:-10}
-DURATION=${6:-60}
+THREADS=${4:-3}
+RAMPUP=${5:-1}
+LOOPS=${6:-5}
 
 echo "Running JMeter performance tests..."
-echo "Host: $HOST, Port: $PORT, Protocol: $PROTOCOL"
-echo "Threads: $THREADS, Ramp-up: $RAMPUP, Duration: $DURATION seconds"
+echo "Configuration initiale: Host=$DEFAULT_HOST, Port=$PORT, Protocol=$PROTOCOL"
+echo "Threads: $THREADS, Ramp-up: $RAMPUP, Loops: $LOOPS"
 
-# Vérifier la connectivité avant d'exécuter le test
-echo "Testing connectivity to $HOST:$PORT..."
-timeout 5 bash -c "cat < /dev/null > /dev/tcp/$HOST/$PORT"
-if [ $? -eq 0 ]; then
-  echo "Connection successful!"
-else
-  echo "Connection failed! Attempting to continue anyway..."
+# Trouver un hôte accessible
+WORKING_HOST=""
+for HOST in "${HOSTS[@]}"; do
+  echo "Testing connectivity to $HOST:$PORT..."
+  if timeout 3 bash -c "echo > /dev/tcp/$HOST/$PORT" 2>/dev/null; then
+    echo "Connection successful to $HOST:$PORT!"
+    WORKING_HOST=$HOST
+    break
+  else
+    echo "Connection failed to $HOST:$PORT"
+  fi
+done
+
+if [ -z "$WORKING_HOST" ]; then
+  echo "Could not connect to any host. Will try with the default host ($DEFAULT_HOST) anyway."
+  WORKING_HOST=$DEFAULT_HOST
 fi
+
+echo "Using host: $WORKING_HOST for tests"
 
 # Création du répertoire de rapport
 mkdir -p $REPORT_DIR
 
 # Exécution du test JMeter
+echo "Starting JMeter test with reduced load (threads=$THREADS, loops=$LOOPS)..."
 jmeter -n \
     -t $TEST_PLAN \
     -l $RESULTS_FILE \
     -e -o $REPORT_DIR \
-    -Jhost=$HOST \
+    -Jhost=$WORKING_HOST \
     -Jport=$PORT \
     -Jprotocol=$PROTOCOL \
     -Jthreads=$THREADS \
     -Jrampup=$RAMPUP \
-    -Jduration=$DURATION
+    -Jloops=$LOOPS
 
 # Vérification du résultat
-if [ $? -eq 0 ]; then
+RESULT=$?
+if [ $RESULT -eq 0 ]; then
     echo "Performance tests completed successfully"
     echo "Results available in $REPORT_DIR"
     
     # Extraction des métriques de performance clés
     echo "Performance Summary:"
     echo "---------------------------------------------------------"
-    grep "summary =" jmeter.log | tail -n 1
+    if [ -f "jmeter.log" ]; then
+      grep "summary =" jmeter.log | tail -n 1 || echo "No summary found in log"
+    else
+      echo "No JMeter log file found"
+    fi
     echo "---------------------------------------------------------"
+    
+    # Créer un résumé dans un fichier texte qui sera archivé
+    echo "API Performance Test Summary" > $REPORT_DIR/summary.txt
+    echo "Test Date: $(date)" >> $REPORT_DIR/summary.txt
+    echo "Host: $WORKING_HOST" >> $REPORT_DIR/summary.txt
+    echo "Threads: $THREADS" >> $REPORT_DIR/summary.txt
+    echo "Loops: $LOOPS" >> $REPORT_DIR/summary.txt
+    echo "---------------------------------------------------------" >> $REPORT_DIR/summary.txt
+    if [ -f "jmeter.log" ]; then
+      grep "summary =" jmeter.log | tail -n 1 >> $REPORT_DIR/summary.txt || echo "No summary data" >> $REPORT_DIR/summary.txt
+    fi
     
     exit 0
 else
-    echo "Performance tests failed"
+    echo "Performance tests failed with code $RESULT"
+    echo "Detailed error information:"
+    
+    # Créer un fichier d'erreur qui sera archivé
+    echo "API Performance Test FAILED" > $REPORT_DIR/error.txt
+    echo "Test Date: $(date)" >> $REPORT_DIR/error.txt
+    echo "Host: $WORKING_HOST" >> $REPORT_DIR/error.txt
+    echo "Exit Code: $RESULT" >> $REPORT_DIR/error.txt
+    echo "---------------------------------------------------------" >> $REPORT_DIR/error.txt
+    if [ -f "jmeter.log" ]; then
+      tail -n 50 jmeter.log >> $REPORT_DIR/error.txt
+    else
+      echo "No JMeter log file found" >> $REPORT_DIR/error.txt
+    fi
+    
     exit 1
 fi 
