@@ -1,48 +1,46 @@
 package fr.epsi.b3devc1.sylvainmjc.backend.config;
 
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.test.util.TestPropertyValues;
+import org.springframework.context.ApplicationContextInitializer;
+import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Bean;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.lifecycle.Startables;
+import org.testcontainers.utility.DockerImageName;
 
 @TestConfiguration
 public class TestContainersConfig {
 
-    private static final PostgreSQLContainer<?> POSTGRES_CONTAINER = 
-        new PostgreSQLContainer<>("postgres:15-alpine")
-            .withDatabaseName("integration-tests-db")
-            .withUsername("testuser")
-            .withPassword("testpass")
-            .withReuse(true);
-    
+    public static final PostgreSQLContainer<?> POSTGRES_CONTAINER;
+
     static {
-        POSTGRES_CONTAINER.start();
+        POSTGRES_CONTAINER = new PostgreSQLContainer<>(
+                DockerImageName.parse("postgres:15-alpine")
+                    .asCompatibleSubstituteFor("postgres"))
+                .withDatabaseName("integration-tests-db")
+                .withUsername("testuser")
+                .withPassword("testpass")
+                .withReuse(true);
         
-        // Ensure clean shutdown
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            if (POSTGRES_CONTAINER.isRunning()) {
-                System.out.println("Stopping PostgreSQL container...");
-                POSTGRES_CONTAINER.stop();
-            }
-        }));
+        POSTGRES_CONTAINER.start();
     }
-    
+
     @Bean
-    public PostgreSQLContainer<?> postgresContainer() {
+    public PostgreSQLContainer<?> postgreSQLContainer() {
         return POSTGRES_CONTAINER;
     }
     
-    @DynamicPropertySource
-    static void registerProperties(DynamicPropertyRegistry registry) {
-        Startables.deepStart(POSTGRES_CONTAINER).join();
-        
-        registry.add("spring.datasource.url", () -> 
-            POSTGRES_CONTAINER.getJdbcUrl());
-        registry.add("spring.datasource.username", () -> 
-            POSTGRES_CONTAINER.getUsername());
-        registry.add("spring.datasource.password", () -> 
-            POSTGRES_CONTAINER.getPassword());
+    public static class Initializer implements ApplicationContextInitializer<ConfigurableApplicationContext> {
+        @Override
+        public void initialize(ConfigurableApplicationContext applicationContext) {
+            TestPropertyValues.of(
+                "spring.datasource.url=" + POSTGRES_CONTAINER.getJdbcUrl(),
+                "spring.datasource.username=" + POSTGRES_CONTAINER.getUsername(),
+                "spring.datasource.password=" + POSTGRES_CONTAINER.getPassword(),
+                // Configuration explicite pour les transactions
+                "spring.datasource.hikari.auto-commit=false",
+                "spring.jpa.properties.hibernate.connection.provider_disables_autocommit=true"
+            ).applyTo(applicationContext.getEnvironment());
+        }
     }
 } 

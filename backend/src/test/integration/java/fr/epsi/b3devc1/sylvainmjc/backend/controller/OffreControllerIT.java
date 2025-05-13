@@ -14,7 +14,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.jdbc.Sql;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,8 +30,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @Tag("integration")
 @ActiveProfiles("integration")
+@ContextConfiguration(initializers = TestContainersConfig.Initializer.class)
 @Import(TestContainersConfig.class)
 @Transactional
+@TestPropertySource(properties = {
+    "spring.jpa.properties.hibernate.connection.provider_disables_autocommit=true",
+    "spring.datasource.hikari.auto-commit=false"
+})
 public class OffreControllerIT {
 
     @Autowired
