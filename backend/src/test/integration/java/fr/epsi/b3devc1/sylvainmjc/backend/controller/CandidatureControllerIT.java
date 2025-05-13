@@ -6,6 +6,7 @@ import fr.epsi.b3devc1.sylvainmjc.backend.entity.Candidature;
 import fr.epsi.b3devc1.sylvainmjc.backend.entity.Offre;
 import fr.epsi.b3devc1.sylvainmjc.backend.repository.CandidatureRepository;
 import fr.epsi.b3devc1.sylvainmjc.backend.repository.OffreRepository;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -14,6 +15,8 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -40,7 +43,22 @@ public class CandidatureControllerIT {
     public static PostgreSQLContainer<?> postgresContainer = new PostgreSQLContainer<>("postgres:15-alpine")
             .withDatabaseName("integration-tests-db")
             .withUsername("testuser")
-            .withPassword("testpass");
+            .withPassword("testpass")
+            .withInitScript("init-db.sql");
+
+    @DynamicPropertySource
+    static void postgresProperties(DynamicPropertyRegistry registry) {
+        registry.add("spring.datasource.url", postgresContainer::getJdbcUrl);
+        registry.add("spring.datasource.username", postgresContainer::getUsername);
+        registry.add("spring.datasource.password", postgresContainer::getPassword);
+    }
+
+    @BeforeAll
+    static void beforeAll() {
+        // Ensure container is started
+        postgresContainer.start();
+        System.out.println("PostgreSQL container started at: " + postgresContainer.getJdbcUrl());
+    }
 
     @Autowired
     private MockMvc mockMvc;

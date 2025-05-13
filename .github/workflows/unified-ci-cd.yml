@@ -38,15 +38,34 @@ jobs:
         docker info
         echo "TESTCONTAINERS_HOST_OVERRIDE=localhost" >> $GITHUB_ENV
     
+    # Cache Gradle dependencies for faster builds
+    - name: Setup Gradle cache
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.gradle/caches
+          ~/.gradle/wrapper
+        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+        restore-keys: |
+          ${{ runner.os }}-gradle-
+    
     - name: Build backend
       run: cd backend && ./gradlew build -x test
     
-    # Exécuter tous les tests (unitaires et intégration)
+    # Exécuter les tests unitaires
     - name: Run unit tests
       run: cd backend && ./gradlew unitTest
     
+    # Exécuter les tests d'intégration avec plus de mémoire et de temps
     - name: Run integration tests
-      run: cd backend && ./gradlew integrationTest
+      run: |
+        cd backend
+        ./gradlew integrationTest --no-daemon --info \
+          -Dorg.gradle.jvmargs="-Xmx2g -XX:MaxMetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError"
+      env:
+        # Configuration supplémentaire pour TestContainers
+        TESTCONTAINERS_REUSE_ENABLE: "true"
+        DOCKER_HOST: "tcp://localhost:2375"
     
     - name: Generate JaCoCo reports
       run: cd backend && ./gradlew jacocoTestReport
@@ -68,6 +87,15 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '18'
+    
+    # Cache NPM dependencies for faster builds
+    - name: Setup Node modules cache
+      uses: actions/cache@v3
+      with:
+        path: ~/.npm
+        key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-node-
     
     - name: Install frontend dependencies
       run: cd frontend && npm install
