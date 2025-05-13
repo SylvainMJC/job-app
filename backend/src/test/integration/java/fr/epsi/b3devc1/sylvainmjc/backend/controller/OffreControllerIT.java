@@ -2,6 +2,7 @@ package fr.epsi.b3devc1.sylvainmjc.backend.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import fr.epsi.b3devc1.sylvainmjc.backend.config.TestContainersConfig;
 import fr.epsi.b3devc1.sylvainmjc.backend.entity.Offre;
 import fr.epsi.b3devc1.sylvainmjc.backend.repository.OffreRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -10,13 +11,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.jdbc.Sql;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 
@@ -28,14 +29,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @Tag("integration")
 @ActiveProfiles("integration")
-@Testcontainers
+@Import(TestContainersConfig.class)
+@Transactional
 public class OffreControllerIT {
-
-    @Container
-    public static PostgreSQLContainer<?> postgresContainer = new PostgreSQLContainer<>("postgres:15-alpine")
-            .withDatabaseName("integration-tests-db")
-            .withUsername("testuser")
-            .withPassword("testpass");
 
     @Autowired
     private MockMvc mockMvc;
@@ -50,6 +46,7 @@ public class OffreControllerIT {
     void setUp() {
         // Nettoyer la base de données avant chaque test
         offreRepository.deleteAll();
+        offreRepository.flush();
     }
 
     @Test
@@ -80,6 +77,8 @@ public class OffreControllerIT {
         offre2.setDateCreation(LocalDateTime.now());
         offreRepository.save(offre2);
 
+        offreRepository.flush();
+
         // Act & Assert
         mockMvc.perform(get("/api/offres")
                 .contentType(MediaType.APPLICATION_JSON))
@@ -99,7 +98,7 @@ public class OffreControllerIT {
         offre.setLocalisation("Lyon");
         offre.setDescription("Description du poste");
         offre.setDateCreation(LocalDateTime.now());
-        Offre savedOffre = offreRepository.save(offre);
+        Offre savedOffre = offreRepository.saveAndFlush(offre);
 
         // Act & Assert
         mockMvc.perform(get("/api/offres/{id}", savedOffre.getId())
@@ -152,7 +151,7 @@ public class OffreControllerIT {
         offre.setLocalisation("Lyon");
         offre.setDescription("Description du poste");
         offre.setDateCreation(LocalDateTime.now());
-        Offre savedOffre = offreRepository.save(offre);
+        Offre savedOffre = offreRepository.saveAndFlush(offre);
 
         String updatedOffreJson = "{\"titre\":\"Développeur Java Senior\",\"entreprise\":\"EPSI\",\"localisation\":\"Lyon\",\"description\":\"Description mise à jour\"}";
 
@@ -190,7 +189,7 @@ public class OffreControllerIT {
         offre.setLocalisation("Lyon");
         offre.setDescription("Description du poste");
         offre.setDateCreation(LocalDateTime.now());
-        Offre savedOffre = offreRepository.save(offre);
+        Offre savedOffre = offreRepository.saveAndFlush(offre);
 
         // Act & Assert
         mockMvc.perform(delete("/api/offres/{id}", savedOffre.getId()))

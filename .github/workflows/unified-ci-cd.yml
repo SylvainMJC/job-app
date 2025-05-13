@@ -86,23 +86,48 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x ./backend/gradlew
     
+    # Download backend build artifacts
+    - name: Download backend build
+      uses: actions/download-artifact@v4
+      with:
+        name: backend-build
+        path: backend/build/libs/
+    
     # Configuration de Docker pour Testcontainers
     - name: Set up Docker
       run: |
         docker info
         echo "TESTCONTAINERS_HOST_OVERRIDE=localhost" >> $GITHUB_ENV
+        echo "TESTCONTAINERS_REUSE_ENABLE=true" >> $GITHUB_ENV
+        echo "JAVA_TOOL_OPTIONS=-Djava.net.preferIPv4Stack=true" >> $GITHUB_ENV
+      
+    # Augmenter la mémoire disponible pour Gradle
+    - name: Setup Gradle properties
+      run: |
+        mkdir -p ~/.gradle
+        echo "org.gradle.jvmargs=-Xmx2g -XX:MaxMetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError" > ~/.gradle/gradle.properties
+        echo "org.gradle.daemon=false" >> ~/.gradle/gradle.properties
     
     - name: Run integration tests
-      run: cd backend && ./gradlew integrationTest
+      run: cd backend && ./gradlew integrationTest --info
     
     - name: Generate JaCoCo report for integration tests
+      if: always()
       run: cd backend && ./gradlew jacocoIntegrationTestReport
     
     - name: Upload JaCoCo integration test reports
+      if: always()
       uses: actions/upload-artifact@v4
       with:
         name: jacoco-integration-reports
         path: backend/build/reports/jacoco/integration/
+    
+    - name: Upload test reports
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: integration-test-reports
+        path: backend/build/reports/tests/integrationTest/
 
   frontend-build:
     runs-on: ubuntu-latest

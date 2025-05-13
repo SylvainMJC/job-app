@@ -2,6 +2,7 @@ package fr.epsi.b3devc1.sylvainmjc.backend.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import fr.epsi.b3devc1.sylvainmjc.backend.config.TestContainersConfig;
 import fr.epsi.b3devc1.sylvainmjc.backend.entity.Candidature;
 import fr.epsi.b3devc1.sylvainmjc.backend.entity.Offre;
 import fr.epsi.b3devc1.sylvainmjc.backend.repository.CandidatureRepository;
@@ -12,13 +13,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -33,14 +33,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @Tag("integration")
 @ActiveProfiles("integration")
-@Testcontainers
+@Import(TestContainersConfig.class)
+@Transactional
 public class CandidatureControllerIT {
-
-    @Container
-    public static PostgreSQLContainer<?> postgresContainer = new PostgreSQLContainer<>("postgres:15-alpine")
-            .withDatabaseName("integration-tests-db")
-            .withUsername("testuser")
-            .withPassword("testpass");
 
     @Autowired
     private MockMvc mockMvc;
@@ -61,6 +56,10 @@ public class CandidatureControllerIT {
         // Nettoyer la base de données avant chaque test
         candidatureRepository.deleteAll();
         offreRepository.deleteAll();
+        
+        // Vider le cache et synchroniser
+        candidatureRepository.flush();
+        offreRepository.flush();
 
         // Créer une offre de test
         testOffre = new Offre();
@@ -69,7 +68,7 @@ public class CandidatureControllerIT {
         testOffre.setLocalisation("Lyon");
         testOffre.setDescription("Description du poste");
         testOffre.setDateCreation(LocalDateTime.now());
-        testOffre = offreRepository.save(testOffre);
+        testOffre = offreRepository.saveAndFlush(testOffre);
     }
 
     @Test
@@ -86,6 +85,8 @@ public class CandidatureControllerIT {
         // Arrange
         Candidature candidature1 = createCandidature("Dupont", "Jean", "jean.dupont@example.com");
         Candidature candidature2 = createCandidature("Martin", "Sophie", "sophie.martin@example.com");
+        
+        candidatureRepository.flush();
 
         // Act & Assert
         mockMvc.perform(get("/api/candidatures")
@@ -101,6 +102,7 @@ public class CandidatureControllerIT {
     void testGetCandidatureById_WhenCandidatureExists_ShouldReturnCandidature() throws Exception {
         // Arrange
         Candidature candidature = createCandidature("Dupont", "Jean", "jean.dupont@example.com");
+        candidatureRepository.flush();
 
         // Act & Assert
         mockMvc.perform(get("/api/candidatures/{id}", candidature.getId())
@@ -124,6 +126,7 @@ public class CandidatureControllerIT {
         // Arrange
         Candidature candidature1 = createCandidature("Dupont", "Jean", "jean.dupont@example.com");
         Candidature candidature2 = createCandidature("Martin", "Sophie", "sophie.martin@example.com");
+        candidatureRepository.flush();
 
         // Act & Assert
         mockMvc.perform(get("/api/candidatures/offre/{offreId}", testOffre.getId())
@@ -208,6 +211,7 @@ public class CandidatureControllerIT {
     void testUpdateCandidature_WhenCandidatureExists_ShouldUpdateAndReturnCandidature() throws Exception {
         // Arrange
         Candidature candidature = createCandidature("Dupont", "Jean", "jean.dupont@example.com");
+        candidatureRepository.flush();
 
         String updatedCandidatureJson = "{\"nom\":\"Dupont\",\"prenom\":\"Jean-Pierre\",\"email\":\"jean.pierre.dupont@example.com\",\"telephone\":\"0123456789\",\"message\":\"Je suis très intéressé par ce poste\"}";
 
@@ -240,6 +244,7 @@ public class CandidatureControllerIT {
     void testDeleteCandidature_WhenCandidatureExists_ShouldDeleteCandidature() throws Exception {
         // Arrange
         Candidature candidature = createCandidature("Dupont", "Jean", "jean.dupont@example.com");
+        candidatureRepository.flush();
 
         // Act & Assert
         mockMvc.perform(delete("/api/candidatures/{id}", candidature.getId()))
