@@ -59,3 +59,9 @@ coverage/
 **/jmeter/reports/
 **/jmeter/results.jtl
 **/jmeter/jmeter.log 
+
+### Security Tests ###
+/security-reports/
+**/security-reports/
+**/*security-report.html
+**/*security-test-app.log 

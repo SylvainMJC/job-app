@@ -515,9 +515,217 @@ jobs:
         path: frontend/playwright-report/
         retention-days: 7
 
+  # Job pour les tests de sécurité avec OWASP ZAP
+  security-tests:
+    runs-on: ubuntu-latest
+    needs: [backend-build, frontend-build]
+    
+    # Configurer Docker-in-Docker pour exécuter OWASP ZAP
+    services:
+      dind:
+        image: docker:dind
+        options: --privileged
+        ports:
+          - 2375:2375
+      # PostgreSQL pour les tests
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_DB: jobapp
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        # Set health checks to wait until postgres has started
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Docker
+      uses: docker/setup-buildx-action@v2
+      with:
+        driver-opts: network=host
+    
+    - name: Download backend build
+      uses: actions/download-artifact@v4
+      with:
+        name: backend-build
+        path: backend/build/libs/
+    
+    - name: Download frontend build
+      uses: actions/download-artifact@v4
+      with:
+        name: frontend-build
+        path: frontend/dist/
+    
+    - name: Set execute permission for jar
+      run: chmod +x backend/build/libs/*.jar
+    
+    - name: Install PostgreSQL client
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y postgresql-client
+    
+    - name: Start backend for security tests
+      run: |
+        cd backend
+        
+        # Vérifier la disponibilité de PostgreSQL
+        echo "Checking PostgreSQL connectivity..."
+        pg_isready -h localhost -p 5432 || echo "PostgreSQL not ready yet"
+        
+        # List available JAR files
+        echo "Available JAR files:"
+        ls -la build/libs/
+        
+        # Use only the executable JAR (not the -plain.jar)
+        EXECUTABLE_JAR=$(find build/libs/ -name "*.jar" -not -name "*-plain.jar" -type f | head -n 1)
+        echo "Using executable JAR: $EXECUTABLE_JAR"
+        
+        if [ -z "$EXECUTABLE_JAR" ]; then
+          echo "ERROR: No executable JAR found!"
+          exit 1
+        fi
+        
+        nohup java -jar "$EXECUTABLE_JAR" \
+          --server.port=8080 \
+          --spring.datasource.url=jdbc:postgresql://localhost:5432/jobapp \
+          --spring.datasource.username=postgres \
+          --spring.datasource.password=postgres \
+          --spring.datasource.driver-class-name=org.postgresql.Driver \
+          --spring.jpa.database-platform=org.hibernate.dialect.PostgreSQLDialect \
+          --spring.jpa.hibernate.ddl-auto=update \
+          --logging.level.org.springframework=INFO \
+          --logging.level.org.hibernate=INFO \
+          > security-test-app.log 2>&1 &
+        echo $! > app.pid
+        
+        # Attendre que l'application démarre
+        echo "Waiting for application to start..."
+        max_attempts=60
+        attempt=1
+        backend_started=false
+        
+        while [ $attempt -le $max_attempts ]; do
+          echo "Checking if app is running (attempt $attempt of $max_attempts)..."
+          if curl -s http://localhost:8080/api/offres > /dev/null; then
+            echo "Application is up and running!"
+            backend_started=true
+            break
+          fi
+          
+          # Check logs every 5 attempts
+          if [ $((attempt % 5)) -eq 0 ]; then
+            echo "--- Log snapshot at attempt $attempt ---"
+            tail -n 50 security-test-app.log
+          fi
+          
+          attempt=$((attempt+1))
+          sleep 3
+        done
+        
+        if [ "$backend_started" != "true" ]; then
+          echo "ERROR: Backend application did not start within the allocated time"
+          cat security-test-app.log
+          exit 1
+        fi
+    
+    - name: Start frontend for security tests
+      run: |
+        cd frontend
+        # Démarrer un serveur nginx simple pour servir le frontend
+        echo "Starting nginx to serve frontend..."
+        docker run -d -p 80:80 -v $(pwd)/dist:/usr/share/nginx/html --name frontend-nginx nginx:alpine
+        echo "Frontend should be accessible at http://localhost:80"
+    
+    - name: Run OWASP ZAP scan
+      run: |
+        # Créer le répertoire pour les rapports de sécurité
+        mkdir -p security-reports
+        
+        # Vérifier que les services sont accessibles
+        echo "Verifying backend service:"
+        curl -v http://localhost:8080/api/offres
+        
+        echo "Verifying frontend service:"
+        curl -v http://localhost
+        
+        # Exécuter le scan OWASP ZAP
+        echo "Running OWASP ZAP scan..."
+        docker run --network host -v $(pwd)/security-reports:/zap/wrk/:rw owasp/zap2docker-stable:latest zap-baseline.py \
+          -t http://localhost:80 \
+          -g gen.conf \
+          -r security-report.html \
+          -l PASS \
+          -a \
+          || echo "ZAP scan completed with warnings/errors"
+        
+        # Scan de l'API backend également
+        docker run --network host -v $(pwd)/security-reports:/zap/wrk/:rw owasp/zap2docker-stable:latest zap-api-scan.py \
+          -t http://localhost:8080/api/offres \
+          -r api-security-report.html \
+          -l PASS \
+          -a \
+          || echo "ZAP API scan completed with warnings/errors"
+      continue-on-error: true  # Le scan peut signaler des vulnérabilités mais ne doit pas faire échouer le workflow
+    
+    - name: Archive security reports
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: security-reports
+        path: security-reports/
+        retention-days: 7
+    
+    - name: Generate security summary
+      if: always()
+      run: |
+        echo "# Security Test Summary" > security-summary.md
+        echo "## Results" >> security-summary.md
+        
+        if [ -f security-reports/security-report.html ]; then
+          echo "- Frontend Security Scan: Completed" >> security-summary.md
+          echo "- [Detailed Frontend Report Available](../artifacts/security-reports/security-report.html)" >> security-summary.md
+        else
+          echo "- Frontend Security Scan: Failed or not completed" >> security-summary.md
+        fi
+        
+        if [ -f security-reports/api-security-report.html ]; then
+          echo "- API Security Scan: Completed" >> security-summary.md
+          echo "- [Detailed API Report Available](../artifacts/security-reports/api-security-report.html)" >> security-summary.md
+        else
+          echo "- API Security Scan: Failed or not completed" >> security-summary.md
+        fi
+    
+    - name: Upload security summary
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: security-summary
+        path: security-summary.md
+        retention-days: 7
+    
+    - name: Cleanup
+      if: always()
+      run: |
+        # Arrêter l'application backend
+        if [ -f backend/app.pid ]; then
+          echo "Stopping backend application..."
+          kill $(cat backend/app.pid) || echo "Failed to stop application"
+        fi
+        
+        # Arrêter le conteneur nginx
+        docker stop frontend-nginx || echo "Failed to stop frontend-nginx"
+        docker rm frontend-nginx || echo "Failed to remove frontend-nginx"
+
   # Rapport de qualité code et déploiement (Jobs fusionnés)
   code-quality-and-deploy:
-    needs: [backend-unit-tests, backend-integration-tests, frontend-unit-tests, e2e-tests, performance-tests]
+    needs: [backend-unit-tests, backend-integration-tests, frontend-unit-tests, e2e-tests, performance-tests, security-tests]
     runs-on: ubuntu-latest
     if: always() # Run even if some tests failed
     
@@ -552,6 +760,13 @@ jobs:
         path: reports/performance
       continue-on-error: true
     
+    - name: Download security reports
+      uses: actions/download-artifact@v4
+      with:
+        name: security-reports
+        path: reports/security-reports
+      continue-on-error: true
+    
     - name: Generate summary
       run: |
         echo "# Test Coverage Summary" > coverage-summary.md
@@ -572,6 +787,13 @@ jobs:
           cat reports/performance/performance-summary.md >> coverage-summary.md
         else
           echo "- Performance test results not available" >> coverage-summary.md
+        fi
+        echo "" >> coverage-summary.md
+        echo "## Security Tests" >> coverage-summary.md
+        if [ -f reports/security-reports/security-summary.md ]; then
+          cat reports/security-reports/security-summary.md >> coverage-summary.md
+        else
+          echo "- Security test results not available" >> coverage-summary.md
         fi
     
     - name: Upload summary
