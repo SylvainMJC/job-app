@@ -25,7 +25,12 @@ jobs:
       run: chmod +x ./backend/gradlew
     
     - name: Build backend
-      run: cd backend && ./gradlew assemble
+      run: |
+        cd backend
+        ./gradlew bootJar
+        # Verify build artifacts
+        echo "Build artifacts:"
+        ls -la build/libs/
     
     - name: Upload backend build artifacts
       uses: actions/upload-artifact@v4
@@ -231,7 +236,21 @@ jobs:
         
         # Démarrer avec paramètres simplifiés et base de données en mémoire pour les tests
         echo "Starting backend for performance tests on port 8080..."
-        nohup java -jar build/libs/*.jar \
+        
+        # List available JAR files for diagnostic purposes
+        echo "Available JAR files:"
+        ls -la build/libs/
+        
+        # Use only the executable JAR (not the -plain.jar)
+        EXECUTABLE_JAR=$(find build/libs/ -name "*.jar" -not -name "*-plain.jar" -type f | head -n 1)
+        echo "Using executable JAR: $EXECUTABLE_JAR"
+        
+        if [ -z "$EXECUTABLE_JAR" ]; then
+          echo "ERROR: No executable JAR found!"
+          exit 1
+        fi
+        
+        nohup java -jar "$EXECUTABLE_JAR" \
           --server.port=8080 \
           --spring.datasource.url=jdbc:h2:mem:testdb \
           --spring.datasource.username=sa \
