@@ -1,5 +1,6 @@
 # Job App - Documentation des Tests
 
+
 ## Tests unitaires (JUnit 5)
 
 Tests isolés des composants avec JUnit 5 et Mockito. Situés dans `backend/src/test/unit/java`.
@@ -46,7 +47,7 @@ Tests de vulnérabilités avec OWASP ZAP.
 
 Prérequis : Docker pour ZAP et l'application.
 
-État : **Non fonctionnels**. Problèmes avec l'authentification JWT et les autorisations.
+État : **Non fonctionnels**. Problèmes avec l'authentification JWT et les autorisations. Ces tests sont configurés pour ne pas interrompre le workflow CI/CD en cas d'échec, permettant ainsi au pipeline de continuer même si les tests de sécurité échouent.
 
 ## Pipeline CI
 
@@ -54,4 +55,4 @@ Configuration dans `.github/workflows` exécutant automatiquement la constructio
 
 Étapes : Build, tests unitaires, tests d'intégration, tests E2E, rapports de couverture, analyses de sécurité.
 
-État : Configurée pour tests unitaires et d'intégration. Tests E2E, performance et sécurité prévus ultérieurement. 
+État : Configurée pour tests unitaires et d'intégration. Les tests de sécurité sont inclus mais configurés en mode non bloquant pour éviter d'empêcher le déploiement en cas d'échec. 
