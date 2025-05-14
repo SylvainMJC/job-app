@@ -1,7 +1,5 @@
 # Job App - Documentation des Tests
 
-Ce document présente les différents types de tests implémentés dans le projet Job App.
-
 ## Tests unitaires (JUnit 5)
 
 Tests isolés des composants avec JUnit 5 et Mockito. Situés dans `backend/src/test/unit/java`.
