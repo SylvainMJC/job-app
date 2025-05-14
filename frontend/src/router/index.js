@@ -92,7 +92,6 @@ const router = createRouter({
   ]
 })
 
-// Navigation guard pour vérifier l'authentification et les rôles
 router.beforeEach((to, from, next) => {
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
   const currentUser = AuthService.getCurrentUser()
@@ -100,7 +99,6 @@ router.beforeEach((to, from, next) => {
   if (requiresAuth && !currentUser) {
     next('/login')
   } else if (requiresAuth && to.meta.roles) {
-    // Vérifier les rôles
     const hasRole = to.meta.roles.some(role => 
       currentUser.roles.includes(role)
     )
@@ -115,4 +113,4 @@ router.beforeEach((to, from, next) => {
   }
 })
 
-export default router 
+export default router

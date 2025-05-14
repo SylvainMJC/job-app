@@ -43,7 +43,6 @@ public class JwtAuthorizationFilter extends OncePerRequestFilter {
             try {
                 username = jwtUtil.extractUsername(jwt);
             } catch (Exception e) {
-                // Token invalide ou expiré
                 logger.error("Erreur lors de l'extraction du username du token", e);
             }
         }

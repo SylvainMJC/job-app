@@ -46,27 +46,21 @@ public class OffreControllerTest {
 
     @Test
     void getAllOffres_ShouldReturnListOfOffres() {
-        // Arrange
         List<Offre> offres = Arrays.asList(testOffre, new Offre());
         when(offreRepository.findAll()).thenReturn(offres);
 
-        // Act
         List<Offre> result = offreController.getAllOffres();
 
-        // Assert
         assertEquals(2, result.size());
         verify(offreRepository, times(1)).findAll();
     }
 
     @Test
     void getOffreById_WhenOffreExists_ShouldReturnOffre() {
-        // Arrange
         when(offreRepository.findById(1L)).thenReturn(Optional.of(testOffre));
 
-        // Act
         ResponseEntity<Offre> response = offreController.getOffreById(1L);
 
-        // Assert
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
         assertEquals("Développeur Java", response.getBody().getTitre());

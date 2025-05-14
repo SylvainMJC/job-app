@@ -41,10 +41,8 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                // Routes publiques
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/offres/**").permitAll()
-                // Routes protégées
                 .requestMatchers(HttpMethod.POST, "/api/candidatures/**").hasAnyRole("CANDIDAT", "ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/offres/**").hasAnyRole("RECRUTEUR", "ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/api/offres/**").hasAnyRole("RECRUTEUR", "ADMIN")
@@ -80,4 +78,4 @@ public class SecurityConfig {
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }
-} 
+}

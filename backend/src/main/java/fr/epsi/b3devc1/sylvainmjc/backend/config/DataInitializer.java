@@ -16,10 +16,9 @@ import java.util.Set;
 public class DataInitializer {
 
     @Bean
-    @Profile("!test") // Ne pas exécuter dans le profil de test
+    @Profile("!test")
     public CommandLineRunner initData(UtilisateurRepository utilisateurRepository, PasswordEncoder passwordEncoder) {
         return args -> {
-            // Créer un utilisateur admin si aucun n'existe
             if (!utilisateurRepository.existsByUsername("admin")) {
                 Set<Role> adminRoles = new HashSet<>();
                 adminRoles.add(Role.ADMIN);
@@ -36,7 +35,6 @@ public class DataInitializer {
                 utilisateurRepository.save(admin);
             }
             
-            // Créer un utilisateur recruteur par défaut
             if (!utilisateurRepository.existsByUsername("recruteur")) {
                 Set<Role> recruteurRoles = new HashSet<>();
                 recruteurRoles.add(Role.RECRUTEUR);
@@ -53,7 +51,6 @@ public class DataInitializer {
                 utilisateurRepository.save(recruteur);
             }
             
-            // Créer un utilisateur candidat par défaut
             if (!utilisateurRepository.existsByUsername("candidat")) {
                 Set<Role> candidatRoles = new HashSet<>();
                 candidatRoles.add(Role.CANDIDAT);

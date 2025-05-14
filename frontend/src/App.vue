@@ -17,18 +17,15 @@ import { useRouter } from 'vue-router'
           <router-link to="/" class="nav-item">Accueil</router-link>
           <router-link to="/offres" class="nav-item">Offres</router-link>
           
-          <!-- Liens pour les recruteurs -->
           <template v-if="isRecruteur">
             <router-link to="/mes-offres" class="nav-item">Mes offres</router-link>
             <router-link to="/publier-offre" class="nav-item">Publier une offre</router-link>
           </template>
           
-          <!-- Liens pour les candidats -->
           <template v-if="isCandidat">
             <router-link to="/mes-candidatures" class="nav-item">Mes candidatures</router-link>
           </template>
           
-          <!-- Liens pour les administrateurs -->
           <template v-if="isAdmin">
             <router-link to="/admin" class="nav-item">Administration</router-link>
           </template>

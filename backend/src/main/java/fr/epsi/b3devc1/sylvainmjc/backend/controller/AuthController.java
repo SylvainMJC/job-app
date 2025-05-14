@@ -86,7 +86,6 @@ public class AuthController {
             return ResponseEntity.badRequest().body("Cet email est déjà utilisé");
         }
 
-        // Par défaut, on attribue le rôle CANDIDAT aux nouveaux utilisateurs
         Utilisateur user = Utilisateur.builder()
                 .username(registerRequest.getUsername())
                 .email(registerRequest.getEmail())
