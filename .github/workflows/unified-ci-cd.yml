@@ -5,7 +5,6 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
-  # Permet de déclencher manuellement le workflow
   workflow_dispatch:
 
 jobs:
@@ -28,7 +27,6 @@ jobs:
       run: |
         cd backend
         ./gradlew bootJar
-        # Verify build artifacts
         echo "Build artifacts:"
         ls -la build/libs/
     
@@ -55,14 +53,12 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x ./backend/gradlew
     
-    # Télécharger les artefacts de build pour éviter de recompiler
     - name: Download backend build
       uses: actions/download-artifact@v4
       with:
         name: backend-build
         path: backend/build/libs/
     
-    # Vérification des tests unitaires disponibles
     - name: List unit test files
       run: find backend/src/test/unit -name "*.java" | sort
     
@@ -83,7 +79,6 @@ jobs:
     needs: [backend-build]
     runs-on: ubuntu-latest
     
-    # Configurer Docker-in-Docker pour les tests d'intégration
     services:
       dind:
         image: docker:dind
@@ -103,26 +98,23 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x ./backend/gradlew
     
-    # Télécharger les artefacts de build pour éviter de recompiler
     - name: Download backend build
       uses: actions/download-artifact@v4
       with:
         name: backend-build
         path: backend/build/libs/
     
-    # Configuration de Docker pour Testcontainers
     - name: Set up Docker
       run: |
         docker info
         echo "TESTCONTAINERS_HOST_OVERRIDE=localhost" >> $GITHUB_ENV
     
-    # Vérification des tests d'intégration disponibles
     - name: List integration test files
       run: find backend/src/test/integration -name "*.java" | sort
     
     - name: Run integration tests
       run: cd backend && ./gradlew integrationTest -i
-      continue-on-error: true  # Allow tests to fail but continue the workflow
+      continue-on-error: true
     
     - name: Generate JaCoCo report for integration tests
       run: cd backend && ./gradlew jacocoIntegrationTestReport
@@ -134,7 +126,7 @@ jobs:
         name: jacoco-integration-reports
         path: backend/build/reports/jacoco/integration/
         retention-days: 7
-      if: always()  # Always upload even if tests fail
+      if: always()
   
   frontend-build:
     runs-on: ubuntu-latest
@@ -142,7 +134,6 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    # Setup Node.js pour le frontend
     - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
@@ -168,7 +159,6 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    # Setup Node.js pour le frontend
     - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
@@ -177,7 +167,6 @@ jobs:
     - name: Install frontend dependencies
       run: cd frontend && npm install
     
-    # Run frontend unit tests
     - name: Test frontend
       run: cd frontend && npm run test:unit
       continue-on-error: true
@@ -190,19 +179,16 @@ jobs:
         path: frontend/coverage/
         retention-days: 7
 
-  # Job pour les tests de performance avec JMeter
   performance-tests:
     runs-on: ubuntu-latest
     needs: [backend-build]
     
-    # Configurer Docker-in-Docker pour exécuter JMeter et PostgreSQL
     services:
       dind:
         image: docker:dind
         options: --privileged
         ports:
           - 2375:2375
-      # PostgreSQL pour les tests
       postgres:
         image: postgres:14
         env:
@@ -211,7 +197,6 @@ jobs:
           POSTGRES_PASSWORD: postgres
         ports:
           - 5432:5432
-        # Set health checks to wait until postgres has started
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -244,7 +229,6 @@ jobs:
       run: |
         cd backend
         
-        # Collect environment info for diagnostics
         echo "Environment diagnostics:"
         java -version
         echo "Free disk space:"
@@ -254,18 +238,14 @@ jobs:
         echo "Network interfaces:"
         ip addr || ifconfig || echo "Network command not available"
         
-        # Démarrer avec paramètres simplifiés et base de données PostgreSQL pour les tests
         echo "Starting backend for performance tests on port 8080..."
         
-        # Vérifier la disponibilité de PostgreSQL
         echo "Checking PostgreSQL connectivity..."
         pg_isready -h localhost -p 5432 || echo "PostgreSQL not ready yet"
         
-        # List available JAR files for diagnostic purposes
         echo "Available JAR files:"
         ls -la build/libs/
         
-        # Use only the executable JAR (not the -plain.jar)
         EXECUTABLE_JAR=$(find build/libs/ -name "*.jar" -not -name "*-plain.jar" -type f | head -n 1)
         echo "Using executable JAR: $EXECUTABLE_JAR"
         
@@ -287,9 +267,8 @@ jobs:
           > perf-test-app.log 2>&1 &
         echo $! > app.pid
         
-        # Attendre que l'application démarre
         echo "Waiting for application to start..."
-        max_attempts=60  # Increased wait time: 60 attempts * 3 seconds = 180 seconds
+        max_attempts=60
         attempt=1
         backend_started=false
         
@@ -301,12 +280,10 @@ jobs:
             break
           fi
           
-          # Check logs for specific patterns every few attempts
           if [ $((attempt % 5)) -eq 0 ]; then
             echo "--- Log snapshot at attempt $attempt ---"
             tail -n 50 perf-test-app.log
             
-            # Check for common startup errors in the log
             if grep -q "APPLICATION FAILED TO START" perf-test-app.log; then
               echo "ERROR: Application failed to start. See logs below:"
               cat perf-test-app.log
@@ -318,11 +295,9 @@ jobs:
           sleep 3
         done
         
-        # Display application logs for debugging
         echo "Application logs:"
         cat perf-test-app.log
         
-        # Fail the build if the backend didn't start
         if [ "$backend_started" != "true" ]; then
           echo "ERROR: Backend application did not start within the allocated time"
           ps aux | grep java
@@ -331,7 +306,6 @@ jobs:
           exit 1
         fi
         
-        # Verify application startup
         echo "Verifying application fully started..."
         if grep -q "Started JobAppApplication" perf-test-app.log || grep -q "Started Application" perf-test-app.log; then
           echo "Application startup successful!"
@@ -341,7 +315,6 @@ jobs:
     
     - name: Run simplified performance test
       run: |
-        # Verify connectivity before running tests
         echo "Verifying backend connectivity before tests..."
         retry_count=0
         max_retries=3
@@ -363,21 +336,17 @@ jobs:
           fi
         done
         
-        # Créer le répertoire pour les rapports
         mkdir -p backend/src/test/jmeter/reports
         
-        # Exécuter un test curl simple pour vérifier la connectivité
         echo "Testing direct API call:"
         curl -v http://localhost:8080/api/offres
         
-        # Construire et exécuter un conteneur simplifié
         cd backend/src/test/jmeter
         echo "Building JMeter Docker container..."
         docker build -t jmeter-tests .
         
-        # Exécuter le test de performance avec --network=host
         echo "Running JMeter with host network..."
-        set -o pipefail  # Make sure pipeline failures are caught
+        set -o pipefail
         docker run --network host \
           -v ${{ github.workspace }}/backend/src/test/jmeter/reports:/jmeter/reports \
           jmeter-tests \
@@ -386,7 +355,6 @@ jobs:
         jmeter_result=$?
         echo "JMeter test exit code: $jmeter_result"
         
-        # Check for error messages in the output
         if [ $jmeter_result -ne 0 ] || grep -q "Connection refused" jmeter-output.log; then
           echo "ERROR: Performance test failed or connection was refused"
           cat jmeter-output.log
@@ -401,7 +369,6 @@ jobs:
         echo "Application logs after tests:"
         cat backend/perf-test-app.log
         
-        # Arrêter l'application backend
         if [ -f backend/app.pid ]; then
           echo "Stopping backend application..."
           kill $(cat backend/app.pid) || echo "Failed to stop application"
@@ -442,12 +409,10 @@ jobs:
         path: performance-summary.md
         retention-days: 7
 
-  # Job pour les tests end-to-end avec Playwright
   e2e-tests:
     runs-on: ubuntu-latest
     needs: [backend-build, frontend-build]
     
-    # Configurer Docker-in-Docker pour exécuter Playwright
     services:
       dind:
         image: docker:dind
@@ -515,20 +480,17 @@ jobs:
         path: frontend/playwright-report/
         retention-days: 7
 
-  # Job pour les tests de sécurité avec OWASP ZAP
   security-tests:
     runs-on: ubuntu-latest
     needs: [backend-build, frontend-build]
-    continue-on-error: true  # Ajouter cette ligne pour que tout le job continue même en cas d'échec
+    continue-on-error: true
     
-    # Configurer Docker-in-Docker pour exécuter OWASP ZAP
     services:
       dind:
         image: docker:dind
         options: --privileged
         ports:
           - 2375:2375
-      # PostgreSQL pour les tests
       postgres:
         image: postgres:14
         env:
@@ -537,7 +499,6 @@ jobs:
           POSTGRES_PASSWORD: postgres
         ports:
           - 5432:5432
-        # Set health checks to wait until postgres has started
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -551,45 +512,42 @@ jobs:
       uses: docker/setup-buildx-action@v2
       with:
         driver-opts: network=host
-      continue-on-error: true  # Ajouter cette ligne
+      continue-on-error: true
     
     - name: Download backend build
       uses: actions/download-artifact@v4
       with:
         name: backend-build
         path: backend/build/libs/
-      continue-on-error: true  # Ajouter cette ligne
+      continue-on-error: true
     
     - name: Download frontend build
       uses: actions/download-artifact@v4
       with:
         name: frontend-build
         path: frontend/dist/
-      continue-on-error: true  # Ajouter cette ligne
+      continue-on-error: true
     
     - name: Set execute permission for jar
       run: chmod +x backend/build/libs/*.jar
-      continue-on-error: true  # Ajouter cette ligne
+      continue-on-error: true
     
     - name: Install PostgreSQL client
       run: |
         sudo apt-get update
         sudo apt-get install -y postgresql-client
-      continue-on-error: true  # Ajouter cette ligne
+      continue-on-error: true
     
     - name: Start backend for security tests
       run: |
         cd backend
         
-        # Vérifier la disponibilité de PostgreSQL
         echo "Checking PostgreSQL connectivity..."
         pg_isready -h localhost -p 5432 || echo "PostgreSQL not ready yet"
         
-        # List available JAR files
         echo "Available JAR files:"
         ls -la build/libs/
         
-        # Use only the executable JAR (not the -plain.jar)
         EXECUTABLE_JAR=$(find build/libs/ -name "*.jar" -not -name "*-plain.jar" -type f | head -n 1)
         echo "Using executable JAR: $EXECUTABLE_JAR"
         
@@ -611,7 +569,6 @@ jobs:
           > security-test-app.log 2>&1 &
         echo $! > app.pid
         
-        # Attendre que l'application démarre
         echo "Waiting for application to start..."
         max_attempts=60
         attempt=1
@@ -625,7 +582,6 @@ jobs:
             break
           fi
           
-          # Check logs every 5 attempts
           if [ $((attempt % 5)) -eq 0 ]; then
             echo "--- Log snapshot at attempt $attempt ---"
             tail -n 50 security-test-app.log
@@ -638,31 +594,28 @@ jobs:
         if [ "$backend_started" != "true" ]; then
           echo "ERROR: Backend application did not start within the allocated time"
           cat security-test-app.log
-          exit 0  # Modifier de exit 1 à exit 0 pour ne pas échouer
+          exit 0
         fi
-      continue-on-error: true  # Ajouter cette ligne
+      continue-on-error: true
     
     - name: Start frontend for security tests
       run: |
         cd frontend
-        # Démarrer un serveur nginx simple pour servir le frontend
         echo "Starting nginx to serve frontend..."
         docker run -d -p 80:80 -v $(pwd)/dist:/usr/share/nginx/html --name frontend-nginx nginx:alpine
         echo "Frontend should be accessible at http://localhost:80"
-      continue-on-error: true  # Ajouter cette ligne
+      continue-on-error: true
     
     - name: Run OWASP ZAP scan
       run: |
-        # Créer le répertoire pour les rapports de sécurité
         mkdir -p security-reports
         
-        # Vérifier que les services sont accessibles
         echo "Verifying backend service:"
         curl -v http://localhost:8080/api/offres
         
         echo "Verifying frontend service:"
         curl -v http://localhost
-      continue-on-error: true  # Ajouter cette ligne
+      continue-on-error: true
     
     - name: ZAP Baseline Scan (Frontend)
       uses: zaproxy/action-baseline@v0.11.0
@@ -671,10 +624,10 @@ jobs:
         allow_issue_writing: false
         cmd_options: '-a -j'
         rules_file_name: ''
-        fail_action: false  # Cette ligne est déjà en place pour ne pas échouer le workflow
+        fail_action: false
         artifact_name: ''
         docker_name: 'ghcr.io/zaproxy/zaproxy:stable'
-      continue-on-error: true  # Ajouter cette ligne
+      continue-on-error: true
     
     - name: ZAP API Scan (Backend)
       uses: zaproxy/action-api-scan@v0.7.0
@@ -683,23 +636,20 @@ jobs:
         allow_issue_writing: false
         format: openapi
         cmd_options: '-a'
-        fail_action: false  # Cette ligne est déjà en place pour ne pas échouer le workflow
+        fail_action: false
         artifact_name: ''
         docker_name: 'ghcr.io/zaproxy/zaproxy:stable'
-      continue-on-error: true  # Ajouter cette ligne
+      continue-on-error: true
     
     - name: Collect ZAP Reports
       run: |
-        # Afficher les fichiers générés par ZAP pour le débogage
         echo "Listing files in workspace:"
         ls -la
         echo "Listing report files:"
         find . -name "report_*.json" -o -name "report_*.html" -o -name "report_*.md" -o -name "zap-*.html" -o -name "zap-*.md"
         
-        # Copier les rapports bruts
         cp -v report_*.json report_*.html report_*.md security-reports/ || echo "Couldn't copy some reports"
         
-        # Renommer les rapports pour plus de clarté
         if [ -f "report_html.html" ]; then
           cp -v report_html.html security-reports/zap-baseline-report.html || echo "Failed to copy HTML report"
         fi
@@ -710,21 +660,18 @@ jobs:
           cp -v report_json.json security-reports/zap-baseline-report.json || echo "Failed to copy JSON report"
         fi
         
-        # Créer un rapport de synthèse
         echo "# ZAP Security Scan Results" > security-reports/summary.md
         echo "## Frontend Scan" >> security-reports/summary.md
         if [ -f "report_md.md" ]; then
           WARNS=$(grep -c "WARN-NEW" report_md.md || echo "0")
           echo "- Found $WARNS warnings" >> security-reports/summary.md
           
-          # Extraire les avertissements spécifiques pour le rapport
           echo "### Warnings detected:" >> security-reports/summary.md
           grep "WARN-NEW" report_md.md | sed 's/WARN-NEW:/- /' >> security-reports/summary.md || echo "- No details available" >> security-reports/summary.md
         else
           echo "- No report found" >> security-reports/summary.md
         fi
         
-        # Afficher le contenu du répertoire security-reports
         echo "Contents of security-reports directory:"
         ls -la security-reports/
       continue-on-error: true
@@ -745,7 +692,6 @@ jobs:
       run: |
         echo "# Security Test Summary" > security-summary.md
         
-        # Intégrer les résultats des scans ZAP s'ils existent
         if [ -f security-reports/summary.md ]; then
           cat security-reports/summary.md >> security-summary.md
         elif [ -f zap-baseline-report.md ] || [ -f zap-api-scan-report.md ]; then
@@ -783,22 +729,19 @@ jobs:
     - name: Cleanup
       if: always()
       run: |
-        # Arrêter l'application backend
         if [ -f backend/app.pid ]; then
           echo "Stopping backend application..."
           kill $(cat backend/app.pid) || echo "Failed to stop application"
         fi
         
-        # Arrêter le conteneur nginx
         docker stop frontend-nginx || echo "Failed to stop frontend-nginx"
         docker rm frontend-nginx || echo "Failed to remove frontend-nginx"
       continue-on-error: true
 
-  # Rapport de qualité code et déploiement (Jobs fusionnés)
   code-quality-and-deploy:
     needs: [backend-unit-tests, backend-integration-tests, frontend-unit-tests, e2e-tests, performance-tests, security-tests]
     runs-on: ubuntu-latest
-    if: always() # Run even if some tests failed
+    if: always()
     
     steps:
     - uses: actions/checkout@v4
@@ -879,7 +822,6 @@ jobs:
         retention-days: 7
       continue-on-error: true
     
-    # Déploiement uniquement lorsque push sur main
     - name: Download backend build for deployment
       if: github.ref == 'refs/heads/main'
       uses: actions/download-artifact@v4
@@ -897,7 +839,6 @@ jobs:
     - name: Display test summary
       run: cat coverage-summary.md
     
-    # Optionnel: Si vous avez un serveur de déploiement, ajoutez les étapes ici
     - name: Deploy to production
       if: github.ref == 'refs/heads/main'
       run: echo "Déploiement en production - Simulation"
